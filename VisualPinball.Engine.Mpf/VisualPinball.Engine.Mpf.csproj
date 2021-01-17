@@ -19,43 +19,64 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="3.13.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.14.0" />
     <PackageReference Include="Grpc.Core" Version="2.35.0-pre1" />
     <PackageReference Include="Grpc.Tools" Version="2.35.0-pre1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="ILRepack.MSBuild.Task" Version="2.0.13" />
   </ItemGroup>
   <ItemGroup>
     <Protobuf Include="**/*.proto" ProtoRoot="protos" />
   </ItemGroup>
+    
+  <Target Name="ILRepack" AfterTargets="Build"> 
+    <ItemGroup> 
+      <InputAssemblies Include="System.Memory.dll" />    
+    </ItemGroup>    
+    <ILRepack OutputType="$(OutputType)" MainAssembly="Google.Protobuf.dll" InputAssemblies="@(InputAssemblies)" OutputAssembly="Google.Protobuf.dll" WorkingDirectory="$(OutDir)" />   
+  </Target>
 
   <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'win-x86' ">
-    <Content Include="$(NuGetPackageRoot)\grpc.core\2.32.0\runtimes\win\native\grpc_csharp_ext.x86.dll">
+    <Content Include="$(NuGetPackageRoot)\grpc.core\2.35.0-pre1\runtimes\win-x86\native\grpc_csharp_ext.x86.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>grpc_csharp_ext.x86.dll</Link>
     </Content>
   </ItemGroup>
 
   <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'win-x64' ">
-    <Content Include="$(NuGetPackageRoot)\grpc.core\2.32.0\runtimes\win\native\grpc_csharp_ext.x64.dll">
+    <Content Include="$(NuGetPackageRoot)\grpc.core\2.35.0-pre1\runtimes\win-x64\native\grpc_csharp_ext.x64.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>grpc_csharp_ext.x64.dll</Link>
     </Content>
   </ItemGroup>
   
   <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'osx-x64' ">
-    <Content Include="$(NuGetPackageRoot)\grpc.core\2.32.0\runtimes\osx\native\libgrpc_csharp_ext.x64.dylib">
+    <Content Include="$(NuGetPackageRoot)\grpc.core\2.35.0-pre1\runtimes\osx-x64\native\libgrpc_csharp_ext.x64.dylib">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>libgrpc_csharp_ext.x64.dylib</Link>
     </Content>
   </ItemGroup>
 
   <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'linux-x64' ">
-    <Content Include="$(NuGetPackageRoot)\grpc.core\2.32.0\runtimes\linux\native\libgrpc_csharp_ext.x64.so">
+    <Content Include="$(NuGetPackageRoot)\grpc.core\2.35.0-pre1\runtimes\linux-x64\native\libgrpc_csharp_ext.x64.so">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>libgrpc_csharp_ext.x64.so</Link>
     </Content>
   </ItemGroup>
+    
+  <Target Name="PluginsDeploy" AfterTargets="ILRepack">
+    <ItemGroup>
+      <NativePlugins Include="$(OutDir)Google.Protobuf.dll" />
+      <NativePlugins Include="$(OutDir)Grpc.Core.dll" />
+      <NativePlugins Include="$(OutDir)Grpc.Core.Api.dll" />      
+            
+      <NativePlugins Include="$(NuGetPackageRoot)\grpc.core\2.35.0-pre1\runtimes\$(RuntimeIdentifier)\native\*" />
+    </ItemGroup>
+    <Message Text="PluginsDeploy: @(Plugins)" />
+    <Copy SourceFiles="@(Plugins)" DestinationFolder="..\VisualPinball.Engine.Mpf.Unity\Plugins\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(NativePlugins)" DestinationFolder="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)\" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
