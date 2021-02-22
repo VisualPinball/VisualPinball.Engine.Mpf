@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30907.101
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VisualPinball.Engine.Mpf", "VisualPinball.Engine.Mpf.csproj", "{B82CF092-4D02-4993-9354-F4B18E8EF79E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution", "Solution", "{D64DD4A2-B0AA-4867-A5B9-8066165B5288}"
+	ProjectSection(SolutionItems) = preProject
+		..\.gitignore = ..\.gitignore
+		..\package.json = ..\package.json
+		..\README.md = ..\README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B82CF092-4D02-4993-9354-F4B18E8EF79E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B82CF092-4D02-4993-9354-F4B18E8EF79E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B82CF092-4D02-4993-9354-F4B18E8EF79E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B82CF092-4D02-4993-9354-F4B18E8EF79E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {70ECF3DF-2305-47EF-B359-4E81DDCB1D81}
+	EndGlobalSection
+EndGlobal

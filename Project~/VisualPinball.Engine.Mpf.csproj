@@ -1,0 +1,76 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<OutputType>WinExe</OutputType>
+		<LangVersion>7.3</LangVersion>
+		<TargetFramework>net472</TargetFramework>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ILRepack.MSBuild.Task" Version="2.0.13" />
+	</ItemGroup>
+
+	<PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
+		<RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' == 'x64'">win-x64</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' != 'x64'">win-x86</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-x64</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</RuntimeIdentifier>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(GrpcRuntimeSrc)' == ''">
+		<GrpcRuntimeSrc Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' == 'x64'">Grpc.Core\runtimes\win\x64\grpc_csharp_ext.dll</GrpcRuntimeSrc>
+		<GrpcRuntimeSrc Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' != 'x64'">Grpc.Core\runtimes\win\x86\grpc_csharp_ext.dll</GrpcRuntimeSrc>
+		<GrpcRuntimeSrc Condition="$([MSBuild]::IsOSPlatform('OSX'))">Grpc.Core\runtimes\osx\x64\grpc_csharp_ext.bundle</GrpcRuntimeSrc>
+		<GrpcRuntimeSrc Condition="$([MSBuild]::IsOSPlatform('Linux'))">Grpc.Core\runtimes\linux\x64\libgrpc_csharp_ext.so</GrpcRuntimeSrc>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(GrpcRuntimeDest)' == ''">
+		<GrpcRuntimeDest Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' == 'x64'">grpc_csharp_ext.x64.dll</GrpcRuntimeDest>
+		<GrpcRuntimeDest Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' != 'x64'">grpc_csharp_ext.x86.dll</GrpcRuntimeDest>
+		<GrpcRuntimeDest Condition="$([MSBuild]::IsOSPlatform('OSX'))">Grpc.Core\runtimes\osx\x64\grpc_csharp_ext.x64.bundle</GrpcRuntimeDest>
+		<GrpcRuntimeDest Condition="$([MSBuild]::IsOSPlatform('Linux'))">Grpc.Core\runtimes\linux\x64\libgrpc_csharp_ext.x64.so</GrpcRuntimeDest>
+	</PropertyGroup>
+
+	<Target Name="ILRepack_1" BeforeTargets="Build">
+		<ItemGroup>
+			<InputAssemblies Include="Mpf~\gprc_unity\System.Memory\lib\net45\System.Memory.dll" />
+			<InputAssemblies Include="Mpf~\gprc_unity\System.Buffers\lib\net45\System.Buffers.dll" />
+			<InputAssemblies Include="Mpf~\gprc_unity\System.Runtime.CompilerServices.Unsafe\lib\net45\System.Runtime.CompilerServices.Unsafe.dll" />
+		</ItemGroup>
+		<ILRepack OutputType="$(OutputType)" MainAssembly="Mpf~\gprc_unity\Google.Protobuf\lib\net45\Google.Protobuf.dll" InputAssemblies="@(InputAssemblies)" OutputAssembly="$(SolutionDir)\..\Plugins\Google.Protobuf\lib\net45\Google.Protobuf.dll" WorkingDirectory="$(SolutionDir)\.." />
+	</Target>
+
+	<Target Name="ILRepack_2" BeforeTargets="Build">
+		<ItemGroup>
+			<InternalizeExcludeAssemblies Include="^Grpc.Core" />
+		</ItemGroup>
+		<ItemGroup>
+			<InputAssemblies Include="Mpf~\gprc_unity\System.Memory\lib\net45\System.Memory.dll" />
+			<InputAssemblies Include="Mpf~\gprc_unity\System.Buffers\lib\net45\System.Buffers.dll" />
+			<InputAssemblies Include="Mpf~\gprc_unity\Grpc.Core.Api\lib\net45\Grpc.Core.Api.dll" />
+		</ItemGroup>
+		<ILRepack OutputType="$(OutputType)" MainAssembly="Mpf~\gprc_unity\Grpc.Core\lib\net45\Grpc.Core.dll" InputAssemblies="@(InputAssemblies)" OutputAssembly="$(SolutionDir)\..\Plugins\Grpc.Core\lib\net45\Grpc.Core.dll" InternalizeExcludeAssemblies="@(InternalizeExcludeAssemblies)" WorkingDirectory="$(SolutionDir)\.." />
+	</Target>
+
+	<ItemGroup>
+		<Compile Include="..\Runtime\MpfClient.cs"><Link>MpfClient.cs</Link></Compile>
+		<Compile Include="..\Runtime\Platform.cs"><Link>Platform.cs</Link></Compile>
+		<Compile Include="..\Runtime\PlatformGrpc.cs"><Link>PlatformGrpc.cs</Link></Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="Google.Protobuf">
+			<HintPath>..\Plugins\Google.Protobuf\lib\net45\Google.Protobuf.dll</HintPath>
+		</Reference>
+		<Reference Include="Grpc.Core">
+			<HintPath>..\Plugins\Grpc.Core\lib\net45\Grpc.Core.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<Target Name="CopyGrpcRuntime" AfterTargets="Build">
+		<Copy SourceFiles="$(SolutionDir)\..\Plugins\$(GrpcRuntimeSrc)" DestinationFiles="$(OutDir)\$(GrpcRuntimeDest)" />
+	</Target>
+
+</Project>
