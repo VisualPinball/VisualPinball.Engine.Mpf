@@ -27,7 +27,7 @@ namespace VisualPinball.Engine.Mpf
 			_spawner = new MpfSpawner(Path.GetFullPath(machineFolder));
 		}
 
-		/// <summary>
+		/*/// <summary>
 		/// Launches MPF in the background and connects to it via gRPC.
 		/// </summary>
 		/// <param name="port">gRPC port to use for MPC/VPE communication</param>
@@ -54,10 +54,10 @@ namespace VisualPinball.Engine.Mpf
 		{
 			return await _client.GetMachineDescription();
 		}
-
+		*/
 		public void Dispose()
 		{
-			_client?.Dispose();
+			//_client?.Dispose();
 		}
 	}
 }

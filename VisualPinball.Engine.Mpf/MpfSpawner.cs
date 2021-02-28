@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace VisualPinball.Engine.Mpf
 {
-	internal class MpfSpawner
+	public class MpfSpawner
 	{
 		private Thread _thread;
 		private readonly string _pwd;

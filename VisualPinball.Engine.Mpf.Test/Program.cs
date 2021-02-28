@@ -21,7 +21,15 @@ namespace MpfTest
 	{
 		static async Task Main(string[] args)
 		{
-			var s = Stopwatch.StartNew();
+			Console.WriteLine("Starting...");
+			var client = new MpfClient();
+			client.Connect();
+			client.Play();
+			Console.WriteLine("Description = " + client.GetMachineDescription());
+			Console.WriteLine("Done!");
+
+
+			/*var s = Stopwatch.StartNew();
 			var mpfApi = new MpfApi(@"../../../VisualPinball.Engine.Mpf/machine");
 
 			await mpfApi.Launch();
@@ -31,7 +39,7 @@ namespace MpfTest
 			});
 
 			var descr = await mpfApi.GetMachineDescription();
-			Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");
+			Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");*/
 		}
 	}
 }

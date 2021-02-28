@@ -18,42 +18,32 @@ using Mpf.Vpe;
 
 namespace VisualPinball.Engine.Mpf
 {
-	internal class MpfClient : IDisposable
+	public class MpfClient
 	{
 		private Channel _channel;
 		private MpfHardwareService.MpfHardwareServiceClient _client;
+		private readonly string _server = "127.0.0.1:50051";
 
-		public async Task Connect(string ipPort) {
-			Console.WriteLine($"Connecting to {ipPort}...");
-			_channel = new Channel(ipPort, ChannelCredentials.Insecure);
-			await _channel.ConnectAsync();
+		public void Connect()
+		{
+			_channel = new Channel(_server, ChannelCredentials.Insecure);
 			_client = new MpfHardwareService.MpfHardwareServiceClient(_channel);
 		}
 
-		public void Start(Dictionary<string, bool> initialSwitches)
+		public void Play()
 		{
-			var machineState = new MachineState();
-			machineState.InitialSwitchStates.Add(initialSwitches);
-			_client.Start(machineState);
+			var ms = new MachineState();
+			ms.InitialSwitchStates.Add("sw11", true);
+			_client.Start(ms);
 		}
 
-		public async Task<MachineDescription> GetMachineDescription() {
-			AssertConnected();
-			return await _client.GetMachineDescriptionAsync(new EmptyRequest());
-		}
-
-		public void Dispose()
+		public MachineDescription GetMachineDescription()
 		{
-			Console.WriteLine("Disconnecting...");
-			_client.Quit(new QuitRequest());
-			_channel.ShutdownAsync();
-			Console.WriteLine("Done!");
+			return _client.GetMachineDescription(new EmptyRequest());
 		}
 
-		private void AssertConnected() {
-			if (_channel == null) {
-				throw new InvalidOperationException("Must .Connect() first!");
-			}
+		private void OnDisable() {
+			_channel.ShutdownAsync().Wait();
 		}
 	}
 }
