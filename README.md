@@ -1,6 +1,32 @@
 # Visual Pinball Engine - MPF Gamelogic Engine
 *Enables the Mission Pinball Framework to drive VPE*
 
+## Structure
+
+This project contains three folders:
+
+- `VisualPinball.Engine.Mpf` is a library which builds the gRPC protos and 
+  wraps them into a nicer interface.
+- `VisualPinball.Engine.Mpf.Test` is a command line tool that allows quick 
+  testing without running Unity
+- `VisualPinball.Engine.Mpf.Unity` is the Unity UPM package that plugs into 
+  VPE and implements the gamelogic engine.
+  
+Currently, only the first two projects are contained in the provided VS 
+solution. In the future we might add the Unity project with its dependencies,
+but for now you'll need to open it through Unity.
+
+### Binaries
+
+Both gRPC and Protobuf come with dependencies that conflict with Unity's, namely
+`System.Buffers`, `System.Memory` and `System.Runtime.CompilerServices`. To
+solve this, we pack all dependencies into a single DLL and ship it to Unity as
+a single binary. So, what Unity is getting is:
+
+- `VisualPinball.Engine.Mpf.dll`, which is `VisualPinball.Engine.Mpf` including
+  all its .NET dependencies
+- `grpc_csharp_ext.dll`, which is the native gRCP library used by the C# wrapper.
+
 ## Setup
 
 You currently need Python and MPF installed locally.
@@ -32,13 +58,6 @@ var descr = await mpfApi.GetMachineDescription();
 
 Console.WriteLine($"Description: {descr}");
 ```
-
-## Unity
-
-This currently need the following compiler flags in order to compile:
-
-- `GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE`
-- `GRPC_DISABLE_PROTOBUF_BUFFER_SERIALIZATION`
 
 ## License
 
