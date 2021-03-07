@@ -3,15 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29905.134
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisualPinball.Engine.Mpf", "VisualPinball.Engine.Mpf\VisualPinball.Engine.Mpf.csproj", "{4886C204-99C9-40AB-A71F-043AF931CBF7}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisualPinball.Engine.Mpf.Test", "VisualPinball.Engine.Mpf.Test\VisualPinball.Engine.Mpf.Test.csproj", "{4C2E8223-2378-4926-90F3-5774809E43B7}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution", "Solution", "{E82C4823-9478-4CD8-981F-77B3D7B42E98}"
-ProjectSection(SolutionItems) = preProject
-	README.md = README.md
-	.gitignore = .gitignore
-EndProjectSection
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+		.gitignore = .gitignore
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisualPinball.Engine.Mpf", "VisualPinball.Engine.Mpf\VisualPinball.Engine.Mpf.csproj", "{E02DAB00-9AC1-4134-AA9D-E30B4635E830}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VisualPinball.Engine.Mpf.Test", "VisualPinball.Engine.Mpf.Test\VisualPinball.Engine.Mpf.Test.csproj", "{9B430BFA-80CD-4595-BE99-E93324D39FE7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,14 +19,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4886C204-99C9-40AB-A71F-043AF931CBF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4886C204-99C9-40AB-A71F-043AF931CBF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4886C204-99C9-40AB-A71F-043AF931CBF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4886C204-99C9-40AB-A71F-043AF931CBF7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4C2E8223-2378-4926-90F3-5774809E43B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4C2E8223-2378-4926-90F3-5774809E43B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4C2E8223-2378-4926-90F3-5774809E43B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4C2E8223-2378-4926-90F3-5774809E43B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E02DAB00-9AC1-4134-AA9D-E30B4635E830}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E02DAB00-9AC1-4134-AA9D-E30B4635E830}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E02DAB00-9AC1-4134-AA9D-E30B4635E830}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E02DAB00-9AC1-4134-AA9D-E30B4635E830}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B430BFA-80CD-4595-BE99-E93324D39FE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B430BFA-80CD-4595-BE99-E93324D39FE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B430BFA-80CD-4595-BE99-E93324D39FE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B430BFA-80CD-4595-BE99-E93324D39FE7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
