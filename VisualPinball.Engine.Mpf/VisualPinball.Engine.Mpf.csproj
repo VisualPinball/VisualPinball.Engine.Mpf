@@ -7,14 +7,14 @@
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
-    
+
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' != 'x86'">win-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' == 'x86'">win-x86</RuntimeIdentifier>
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</RuntimeIdentifier>
-  </PropertyGroup> 
-    
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Grpc.Tools" Version="2.36.1">
       <PrivateAssets>all</PrivateAssets>
@@ -22,6 +22,7 @@
     </PackageReference>
     <PackageReference Include="Grpc" Version="2.36.1" />
     <PackageReference Include="Google.Protobuf" Version="3.15.5" />
+    <PackageReference Include="NLog" Version="4.7.7" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
@@ -30,11 +31,11 @@
   <ItemGroup>
     <Protobuf Include="protos/*.proto" OutputDir="$(ProjectDir)" GrpcServices="Client" />
   </ItemGroup>
-    
+
   <ItemGroup>
     <None Remove="tools/**" />
   </ItemGroup>
-    
+
   <ItemGroup>
     <InputAssemblies Include="$(OutDir)System.Buffers.dll" />
     <InputAssemblies Include="$(OutDir)System.Memory.dll" />
@@ -44,12 +45,12 @@
     <InputAssemblies Include="$(OutDir)Grpc.Core.Api.dll" />
     <InputAssemblies Include="$(OutDir)Grpc.Core.dll" />
   </ItemGroup>
-    
+
   <Target Name="ILRepack" AfterTargets="Build">
     <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) == 'true'" Command="tools\ILRepack.exe /target:library /internalize $(OutDir)$(AssemblyName).dll @(InputAssemblies, ' ') /out:$(OutDir)$(AssemblyName).dll" />
     <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) != 'true'" Command="mono tools/ILRepack.exe /target:library /internalize $(OutDir)$(AssemblyName).dll @(InputAssemblies, ' ') /out:$(OutDir)$(AssemblyName).dll" />
   </Target>
-    
+
   <Target Name="PluginsDeploy" AfterTargets="ILRepack">
     <Copy SourceFiles="$(OutDir)$(AssemblyName).dll" DestinationFolder="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)" SkipUnchangedFiles="true" />
     <Copy Condition="'$(RuntimeIdentifier)' == 'win-x64'" SourceFiles="$(OutDir)grpc_csharp_ext.x64.dll" DestinationFiles="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)\grpc_csharp_ext.dll" SkipUnchangedFiles="true" />
@@ -57,5 +58,5 @@
     <Copy Condition="'$(RuntimeIdentifier)' == 'osx-x64'" SourceFiles="$(OutDir)libgrpc_csharp_ext.x64.dylib" DestinationFiles="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)\libgrpc_csharp_ext.dylib" SkipUnchangedFiles="true" />
     <Copy Condition="'$(RuntimeIdentifier)' == 'linux-x64'" SourceFiles="$(OutDir)libgrpc_csharp_ext.x64.so" DestinationFiles="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)\libgrpc_csharp_ext.so" SkipUnchangedFiles="true" />
   </Target>
-  
+
 </Project>
