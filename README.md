@@ -1,6 +1,8 @@
 # Visual Pinball Engine - MPF Gamelogic Engine
 *Enables the Mission Pinball Framework to drive VPE*
 
+[![UPM Package](https://img.shields.io/npm/v/org.visualpinball.engine.missionpinball?label=org.visualpinball.engine.missionpinball&registry_uri=https://registry.visualpinball.org&color=%2333cf57&logo=unity&style=flat)](https://registry.visualpinball.org/-/web/detail/org.visualpinball.engine.missionpinball)
+
 ## Structure
 
 This project contains three folders:
