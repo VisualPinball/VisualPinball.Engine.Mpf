@@ -32,7 +32,7 @@ namespace MpfTest
 
 
 			var s = Stopwatch.StartNew();
-			var mpfApi = new MpfApi(@"../../../VisualPinball.Engine.Mpf/machine");
+			var mpfApi = new MpfApi(@"../../../../VisualPinball.Engine.Mpf/machine");
 
 			mpfApi.Launch();
 
