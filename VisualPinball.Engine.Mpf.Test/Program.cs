@@ -17,29 +17,31 @@ using VisualPinball.Engine.Mpf;
 
 namespace MpfTest
 {
-	class Program
+	public static class Program
 	{
-		static async Task Main(string[] args)
+		public static void Main(string[] args)
 		{
-			Console.WriteLine("Starting...");
-			var client = new MpfClient();
-			client.Connect();
-			client.Play();
-			Console.WriteLine("Description = " + client.GetMachineDescription());
-			Console.WriteLine("Done!");
+			// Console.WriteLine("Starting...");
+			// var client = new MpfClient();
+			// client.Connect();
+			// client.StartGame(new Dictionary<string, bool> {
+			// 	{ "sw11", true }
+			// });
+			// Console.WriteLine("Description = " + client.GetMachineDescription());
+			// Console.WriteLine("Done!");
 
 
-			/*var s = Stopwatch.StartNew();
+			var s = Stopwatch.StartNew();
 			var mpfApi = new MpfApi(@"../../../VisualPinball.Engine.Mpf/machine");
 
-			await mpfApi.Launch();
+			mpfApi.Launch();
 
-			mpfApi.Start(new Dictionary<string, bool> {
+			mpfApi.StartGame(new Dictionary<string, bool> {
 				{"sw_11", false},
 			});
 
-			var descr = await mpfApi.GetMachineDescription();
-			Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");*/
+			var descr = mpfApi.GetMachineDescription();
+			Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");
 		}
 	}
 }

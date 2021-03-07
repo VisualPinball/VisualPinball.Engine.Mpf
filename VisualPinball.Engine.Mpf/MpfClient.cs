@@ -18,22 +18,26 @@ using Mpf.Vpe;
 
 namespace VisualPinball.Engine.Mpf
 {
+	/// <summary>
+	/// A wrapper with a nicer API than the proto-generated one.
+	/// </summary>
 	public class MpfClient
 	{
 		private Channel _channel;
 		private MpfHardwareService.MpfHardwareServiceClient _client;
-		private readonly string _server = "127.0.0.1:50051";
 
-		public void Connect()
+		public void Connect(string serverIpPort = "127.0.0.1:50051")
 		{
-			_channel = new Channel(_server, ChannelCredentials.Insecure);
+			_channel = new Channel(serverIpPort, ChannelCredentials.Insecure);
 			_client = new MpfHardwareService.MpfHardwareServiceClient(_channel);
 		}
 
-		public void Play()
+		public void StartGame(Dictionary<string, bool> initialSwitches)
 		{
 			var ms = new MachineState();
-			ms.InitialSwitchStates.Add("sw11", true);
+			foreach (var sw in initialSwitches.Keys) {
+				ms.InitialSwitchStates.Add(sw, initialSwitches[sw]);
+			}
 			_client.Start(ms);
 		}
 
@@ -42,7 +46,7 @@ namespace VisualPinball.Engine.Mpf
 			return _client.GetMachineDescription(new EmptyRequest());
 		}
 
-		private void OnDisable() {
+		public void Shutdown() {
 			_channel.ShutdownAsync().Wait();
 		}
 	}

@@ -27,37 +27,37 @@ namespace VisualPinball.Engine.Mpf
 			_spawner = new MpfSpawner(Path.GetFullPath(machineFolder));
 		}
 
-		/*/// <summary>
+		/// <summary>
 		/// Launches MPF in the background and connects to it via gRPC.
 		/// </summary>
 		/// <param name="port">gRPC port to use for MPC/VPE communication</param>
 		/// <returns></returns>
-		public async Task Launch(int port = 50051)
+		public void Launch(int port = 50051)
 		{
-			await _spawner.Spawn();
-			await _client.Connect($"localhost:{port}");
+			_spawner.Spawn();
+			_client.Connect($"localhost:{port}");
 		}
 
 		/// <summary>
 		/// Starts MPF, i.e. it will start polling for switches and sending events.
 		/// </summary>
 		/// <param name="initialSwitches">Initial switch states of the machine</param>
-		public void Start(Dictionary<string, bool> initialSwitches = null)
+		public void StartGame(Dictionary<string, bool> initialSwitches = null)
 		{
-			_client.Start(initialSwitches ?? new Dictionary<string, bool>());
+			_client.StartGame(initialSwitches ?? new Dictionary<string, bool>());
 		}
 
 		/// <summary>
 		/// Returns the machine description.
 		/// </summary>
-		public async Task<MachineDescription> GetMachineDescription()
+		public MachineDescription GetMachineDescription()
 		{
-			return await _client.GetMachineDescription();
+			return _client.GetMachineDescription();
 		}
-		*/
+
 		public void Dispose()
 		{
-			//_client?.Dispose();
+			_client?.Shutdown();
 		}
 	}
 }

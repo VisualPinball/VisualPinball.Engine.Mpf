@@ -14,11 +14,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace VisualPinball.Engine.Mpf
 {
-	public class MpfSpawner
+	internal class MpfSpawner
 	{
 		private Thread _thread;
 		private readonly string _pwd;
@@ -32,7 +31,7 @@ namespace VisualPinball.Engine.Mpf
 			_machineFolder = Path.GetFileName(machineFolder);
 		}
 
-		public async Task Spawn()
+		public void Spawn()
 		{
 			var mpfExe = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "mpf.exe" : "mpf";
 			var mpfExePath = GetFullPath(mpfExe);
@@ -44,8 +43,9 @@ namespace VisualPinball.Engine.Mpf
 				Thread.CurrentThread.IsBackground = true;
 				RunMpf(mpfExePath);
 			});
+
 			_thread.Start();
-			await _ready.WaitAsync();
+			_ready.Wait();
 		}
 
 		private void RunMpf(string mpfExePath)
@@ -58,22 +58,28 @@ namespace VisualPinball.Engine.Mpf
 				RedirectStandardOutput = true,
 			};
 
-			using (var process = Process.Start(info)) {
-				using (var reader = process.StandardOutput) {
-					_ready.Release();
-					var result = reader.ReadToEnd();
-					Console.Write(result);
-					process.WaitForExit();
-				}
+			using (var process = Process.Start(info))
+			using (var reader = process.StandardOutput) {
+				_ready.Release();
+				var result = reader.ReadToEnd();
+				Console.Write(result);
+				process.WaitForExit();
 			}
 		}
 
+		/// <summary>
+		/// Goes through the OS's PATHs to find the provided executable.
+		/// </summary>
+		/// <param name="fileName">Executable filename</param>
+		/// <returns>Full path or null of not found.</returns>
 		private static string GetFullPath(string fileName)
 		{
+			// in current working directory?
 			if (File.Exists(fileName)) {
 				return Path.GetFullPath(fileName);
 			}
 
+			// go through all PATHs
 			var values = Environment.GetEnvironmentVariable("PATH");
 			foreach (var path in values.Split(Path.PathSeparator)) {
 				var fullPath = Path.Combine(path, fileName);
