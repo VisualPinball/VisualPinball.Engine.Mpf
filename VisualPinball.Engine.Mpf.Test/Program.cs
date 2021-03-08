@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using VisualPinball.Engine.Mpf;
 
@@ -19,7 +20,7 @@ namespace MpfTest
 {
 	public static class Program
 	{
-		public static void Main(string[] args)
+		public static async Task Main(string[] args)
 		{
 			// Console.WriteLine("Starting...");
 			// var client = new MpfClient();
@@ -42,6 +43,21 @@ namespace MpfTest
 
 			var descr = mpfApi.GetMachineDescription();
 			Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");
+
+			ConsoleKeyInfo key;
+			do {
+				key = Console.ReadKey();
+				switch (key.Key) {
+					case ConsoleKey.A:
+						await mpfApi.Switch("s_sling", true);
+						break;
+					case ConsoleKey.S:
+						await mpfApi.Switch("s_sling", false);
+						break;
+				}
+			} while (key.Key != ConsoleKey.Escape);
+
+			mpfApi.Dispose();
 		}
 	}
 }

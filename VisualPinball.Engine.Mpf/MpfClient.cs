@@ -12,8 +12,8 @@
 using Grpc.Core;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using Grpc.Core.Utils;
 using Mpf.Vpe;
 using NLog;
 
@@ -35,7 +35,9 @@ namespace VisualPinball.Engine.Mpf
 		private MpfHardwareService.MpfHardwareServiceClient _client;
 
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
+		private Thread _commandsThread;
+		private AsyncServerStreamingCall<Commands> _commandStream;
+		private AsyncClientStreamingCall<SwitchChanges, EmptyResponse> _switchStream;
 
 		public void Connect(string serverIpPort = "127.0.0.1:50051")
 		{
@@ -51,42 +53,54 @@ namespace VisualPinball.Engine.Mpf
 				ms.InitialSwitchStates.Add(sw, initialSwitches[sw]);
 			}
 
+			_commandsThread =  new Thread(() => ReceiveCommands(ms)) { IsBackground = true };
+			_commandsThread.Start();
+
+			_switchStream = _client.SendSwitchChanges();
+		}
+
+		public async Task Switch(string swName, bool swValue)
+		{
+			await _switchStream.RequestStream.WriteAsync(new SwitchChanges
+				{SwitchNumber = swName, SwitchState = swValue});
+		}
+
+		private async void ReceiveCommands(MachineState ms)
+		{
 			Logger.Info("Starting client...");
-			using (var call = _client.Start(ms)) {
+			_commandStream = _client.Start(ms);
 
-				Logger.Info("Client started, retrieving commands...");
-				var count = 0;
-				call.ResponseStream.ForEachAsync(commands => {
+			Logger.Info("Client started, retrieving commands...");
+			var count = 0;
+			while (await _commandStream.ResponseStream.MoveNext()) {
 
-					Logger.Info($"New command: {commands.CommandCase}");
-					count++;
-					switch (commands.CommandCase) {
-						case Commands.CommandOneofCase.None:
-							break;
-						case Commands.CommandOneofCase.FadeLight:
-							OnFadeLight?.Invoke(this, commands.FadeLight);
-							break;
-						case Commands.CommandOneofCase.PulseCoil:
-							OnPulseCoil?.Invoke(this, commands.PulseCoil);
-							break;
-						case Commands.CommandOneofCase.EnableCoil:
-							OnEnableCoil?.Invoke(this, commands.EnableCoil);
-							break;
-						case Commands.CommandOneofCase.DisableCoil:
-							OnDisableCoil?.Invoke(this, commands.DisableCoil);
-							break;
-						case Commands.CommandOneofCase.ConfigureHardwareRule:
-							OnConfigureHardwareRule?.Invoke(this, commands.ConfigureHardwareRule);
-							break;
-						case Commands.CommandOneofCase.RemoveHardwareRule:
-							OnRemoveHardwareRule?.Invoke(this, commands.RemoveHardwareRule);
-							break;
-						default:
-							throw new ArgumentOutOfRangeException();
-					}
-					return Task.CompletedTask;
-				}).Wait();
-
+				var commands = _commandStream.ResponseStream.Current;
+				Logger.Info($"New command: {commands.CommandCase}");
+				count++;
+				switch (commands.CommandCase) {
+					case Commands.CommandOneofCase.None:
+						break;
+					case Commands.CommandOneofCase.FadeLight:
+						OnFadeLight?.Invoke(this, commands.FadeLight);
+						break;
+					case Commands.CommandOneofCase.PulseCoil:
+						OnPulseCoil?.Invoke(this, commands.PulseCoil);
+						break;
+					case Commands.CommandOneofCase.EnableCoil:
+						OnEnableCoil?.Invoke(this, commands.EnableCoil);
+						break;
+					case Commands.CommandOneofCase.DisableCoil:
+						OnDisableCoil?.Invoke(this, commands.DisableCoil);
+						break;
+					case Commands.CommandOneofCase.ConfigureHardwareRule:
+						OnConfigureHardwareRule?.Invoke(this, commands.ConfigureHardwareRule);
+						break;
+					case Commands.CommandOneofCase.RemoveHardwareRule:
+						OnRemoveHardwareRule?.Invoke(this, commands.RemoveHardwareRule);
+						break;
+					default:
+						throw new ArgumentOutOfRangeException();
+				}
 				Logger.Info($"{count} commands dispatched.");
 			}
 		}
@@ -98,6 +112,7 @@ namespace VisualPinball.Engine.Mpf
 		}
 
 		public void Shutdown() {
+			_commandStream.Dispose();
 			_channel.ShutdownAsync().Wait();
 		}
 	}

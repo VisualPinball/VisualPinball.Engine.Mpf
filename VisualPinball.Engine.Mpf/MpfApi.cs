@@ -55,6 +55,11 @@ namespace VisualPinball.Engine.Mpf
 			return _client.GetMachineDescription();
 		}
 
+		public async Task Switch(string swName, bool swValue)
+		{
+			await _client.Switch(swName, swValue);
+		}
+
 		public void Dispose()
 		{
 			_client?.Shutdown();
