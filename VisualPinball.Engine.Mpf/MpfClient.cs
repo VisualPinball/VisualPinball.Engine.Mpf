@@ -101,7 +101,6 @@ namespace VisualPinball.Engine.Mpf
 					default:
 						throw new ArgumentOutOfRangeException();
 				}
-				Logger.Info($"{count} commands dispatched.");
 			}
 		}
 

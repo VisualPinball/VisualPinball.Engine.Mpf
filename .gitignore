@@ -30,6 +30,7 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+lsp/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -351,3 +352,4 @@ MigrationBackup/
 .idea/
 
 **/protos/*.cs
+**/Plugins/*/*.meta

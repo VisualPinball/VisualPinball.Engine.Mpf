@@ -19,7 +19,7 @@ namespace VisualPinball.Engine.Mpf
 {
 	public class MpfApi : IDisposable
 	{
-		private readonly MpfClient _client = new MpfClient();
+		public readonly MpfClient Client = new MpfClient();
 		private readonly MpfSpawner _spawner;
 
 		public MpfApi(string machineFolder)
@@ -35,7 +35,7 @@ namespace VisualPinball.Engine.Mpf
 		public void Launch(int port = 50051)
 		{
 			_spawner.Spawn();
-			_client.Connect($"localhost:{port}");
+			Client.Connect($"localhost:{port}");
 		}
 
 		/// <summary>
@@ -44,7 +44,7 @@ namespace VisualPinball.Engine.Mpf
 		/// <param name="initialSwitches">Initial switch states of the machine</param>
 		public void StartGame(Dictionary<string, bool> initialSwitches = null)
 		{
-			_client.StartGame(initialSwitches ?? new Dictionary<string, bool>());
+			Client.StartGame(initialSwitches ?? new Dictionary<string, bool>());
 		}
 
 		/// <summary>
@@ -52,17 +52,17 @@ namespace VisualPinball.Engine.Mpf
 		/// </summary>
 		public MachineDescription GetMachineDescription()
 		{
-			return _client.GetMachineDescription();
+			return Client.GetMachineDescription();
 		}
 
 		public async Task Switch(string swName, bool swValue)
 		{
-			await _client.Switch(swName, swValue);
+			await Client.Switch(swName, swValue);
 		}
 
 		public void Dispose()
 		{
-			_client?.Shutdown();
+			Client?.Shutdown();
 		}
 	}
 }

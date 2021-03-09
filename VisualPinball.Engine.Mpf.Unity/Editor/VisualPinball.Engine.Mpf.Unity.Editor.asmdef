@@ -3,6 +3,7 @@
 	"rootNamespace": "VisualPinball.Engine.Mpf.Unity.Editor",
 	"references": [
 		"VisualPinball.Unity",
+		"VisualPinball.Unity.Editor",
 		"VisualPinball.Engine.Mpf.Unity"
 	],
 	"includePlatforms": [ "Editor" ],

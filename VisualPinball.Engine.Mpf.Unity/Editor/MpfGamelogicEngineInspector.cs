@@ -26,15 +26,27 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
 		public override void OnInspectorGUI()
 		{
-			if (GUILayout.Button("Connect")) {
-				_mpfEngine.Client.Connect();
+			var pos = EditorGUILayout.GetControlRect(true, 18f);
+			pos = EditorGUI.PrefixLabel(pos, new GUIContent("Machine Folder"));
+
+			if (GUI.Button(pos, _mpfEngine.MachineFolder, EditorStyles.objectField)) {
+				var path = EditorUtility.OpenFolderPanel("Mission Pinball Framework: Choose machine folder", _mpfEngine.MachineFolder, "");
+				if (!string.IsNullOrWhiteSpace(path)) {
+					_mpfEngine.MachineFolder = path;
+				}
 			}
-			if (GUILayout.Button("StartGame")) {
-				_mpfEngine.Client.Play();
+
+			if (GUILayout.Button("Synchronize")) {
+				_mpfEngine.GetMachineDescription();
 			}
-			if (GUILayout.Button("GetMachineDescription")) {
-				Debug.Log(_mpfEngine.Client.GetMachineDescription());
-			}
+
+
+			// if (GUILayout.Button("StartGame")) {
+			// 	_mpfEngine.Client.Play();
+			// }
+			// if (GUILayout.Button("GetMachineDescription")) {
+			// 	Debug.Log(_mpfEngine.Client.GetMachineDescription());
+			// }
 		}
 	}
 }

@@ -26,5 +26,15 @@ namespace VisualPinball.Engine.Mpf.Unity
 		[NonSerialized]
 		public MpfClient Client = new MpfClient();
 
+		public string MachineFolder;
+
+		public void GetMachineDescription()
+		{
+			var client = new MpfClient();
+			client.Connect();
+			client.StartGame(new Dictionary<string, bool>());
+			Debug.Log("Description = " + client.GetMachineDescription());
+		}
+
 	}
 }
