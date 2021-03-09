@@ -10,7 +10,9 @@
 // SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using Mpf.Vpe;
 using UnityEngine;
 using VisualPinball.Engine.Game.Engines;
 using VisualPinball.Unity;
@@ -36,7 +38,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 		public event EventHandler<CoilEventArgs> OnCoilChanged;
 
 		[NonSerialized]
-		public MpfClient Client = new MpfClient();
+		private MpfApi _api;
 
 		public string machineFolder;
 
@@ -44,12 +46,42 @@ namespace VisualPinball.Engine.Mpf.Unity
 		[SerializeField] private GamelogicEngineCoil[] availableCoils = new GamelogicEngineCoil[0];
 		[SerializeField] private GamelogicEngineLamp[] availableLamps = new GamelogicEngineLamp[0];
 
+		private Dictionary<string, int> _switchIds = new Dictionary<string, int>();
+		private Dictionary<string, string> _coilNames = new Dictionary<string, string>();
+
+		private void Awake()
+		{
+			_switchIds.Clear();
+			foreach (var sw in availableSwitches) {
+				_switchIds[sw.Id] = sw.InternalId;
+			}
+			_coilNames.Clear();
+			foreach (var coil in availableCoils) {
+				_coilNames[coil.InternalId.ToString()] = coil.Id;
+			}
+			_api = new MpfApi(machineFolder);
+			_api.Launch();
+
+			_api.Client.OnEnableCoil += OnEnableCoil;
+			_api.Client.OnDisableCoil += OnDisableCoil;
+			_api.Client.OnPulseCoil += OnPulseCoil;
+			_api.Client.OnConfigureHardwareRule += OnConfigureHardwareRule;
+			_api.Client.OnRemoveHardwareRule += OnRemoveHardwareRule;
+			_api.Client.OnFadeLight += OnFadeLight;
+		}
+
 		public void OnInit(Player player, TableApi tableApi, BallManager ballManager)
 		{
+			_api.StartGame(player.SwitchStatusesClosed);
 		}
 
 		public void Switch(string id, bool isClosed)
 		{
+			if (_switchIds.ContainsKey(id)) {
+				_api.Switch(_switchIds[id].ToString(), isClosed);
+			} else {
+				Debug.LogError("Unmapped MPF switch " + id);
+			}
 		}
 
 		public void GetMachineDescription()
@@ -58,6 +90,47 @@ namespace VisualPinball.Engine.Mpf.Unity
 			availableSwitches = md.GetSwitches().ToArray();
 			availableCoils = md.GetCoils().ToArray();
 			availableLamps = md.GetLights().ToArray();
+		}
+
+		private void OnEnableCoil(object sender, EnableCoilRequest e)
+		{
+			if (_coilNames.ContainsKey(e.CoilNumber)) {
+				OnCoilChanged?.Invoke(this, new CoilEventArgs(_coilNames[e.CoilNumber], true));
+			} else {
+				Debug.LogError("Unmapped MPF coil " + e.CoilNumber);
+			}
+		}
+
+		private void OnDisableCoil(object sender, DisableCoilRequest e)
+		{
+			if (_coilNames.ContainsKey(e.CoilNumber)) {
+				OnCoilChanged?.Invoke(this, new CoilEventArgs(_coilNames[e.CoilNumber], false));
+			} else {
+				Debug.LogError("Unmapped MPF coil " + e.CoilNumber);
+			}
+		}
+
+		private void OnPulseCoil(object sender, PulseCoilRequest e)
+		{
+		}
+
+		private void OnFadeLight(object sender, FadeLightRequest e)
+		{
+		}
+
+		private void OnRemoveHardwareRule(object sender, RemoveHardwareRuleRequest e)
+		{
+		}
+
+		private void OnConfigureHardwareRule(object sender, ConfigureHardwareRuleRequest e)
+		{
+		}
+
+
+		private void OnDestroy()
+		{
+			_api.Client.OnEnableCoil -= OnEnableCoil;
+			_api.Dispose();
 		}
 	}
 }
