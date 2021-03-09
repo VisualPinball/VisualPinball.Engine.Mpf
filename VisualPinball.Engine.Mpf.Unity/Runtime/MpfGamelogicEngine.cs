@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using Mpf.Vpe;
 using UnityEngine;
 using VisualPinball.Engine.Game.Engines;
 using VisualPinball.Unity;
@@ -28,12 +29,11 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		public string MachineFolder;
 
+		public MachineDescription MachineDescription;
+
 		public void GetMachineDescription()
 		{
-			var client = new MpfClient();
-			client.Connect();
-			client.StartGame(new Dictionary<string, bool>());
-			Debug.Log("Description = " + client.GetMachineDescription());
+			MachineDescription = MpfApi.GetMachineDescription(MachineFolder);
 		}
 
 	}

@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using VisualPinball.Engine.Mpf;
@@ -22,6 +23,8 @@ namespace MpfTest
 	{
 		public static async Task Main(string[] args)
 		{
+			var machineFolder = Path.GetFullPath(@"../../../../VisualPinball.Engine.Mpf/machine");
+
 			// Console.WriteLine("Starting...");
 			// var client = new MpfClient();
 			// client.Connect();
@@ -33,7 +36,7 @@ namespace MpfTest
 
 
 			var s = Stopwatch.StartNew();
-			var mpfApi = new MpfApi(@"../../../../VisualPinball.Engine.Mpf/machine");
+			var mpfApi = new MpfApi(machineFolder);
 
 			mpfApi.Launch();
 

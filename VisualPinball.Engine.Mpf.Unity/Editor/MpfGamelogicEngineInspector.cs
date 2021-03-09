@@ -9,6 +9,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -37,7 +38,18 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 			}
 
 			if (GUILayout.Button("Synchronize")) {
-				_mpfEngine.GetMachineDescription();
+				if (!Directory.Exists(_mpfEngine.MachineFolder)) {
+					EditorUtility.DisplayDialog("Mission Pinball Framework", "Gotta choose a valid machine folder first!", "Okay");
+				} else if (!Directory.Exists(Path.Combine(_mpfEngine.MachineFolder, "config"))) {
+					EditorUtility.DisplayDialog("Mission Pinball Framework", $"{_mpfEngine.MachineFolder} doesn't seem a valid machine folder. We expect a \"config\" subfolder in there!", "Okay");
+				} else {
+					_mpfEngine.GetMachineDescription();
+				}
+			}
+
+			EditorGUILayout.LabelField("Switches", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
+			foreach (var switchDescription in _mpfEngine.MachineDescription.Switches) {
+				EditorGUILayout.LabelField(switchDescription.HardwareNumber, switchDescription.Name);
 			}
 
 

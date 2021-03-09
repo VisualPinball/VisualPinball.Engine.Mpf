@@ -46,15 +46,20 @@ namespace VisualPinball.Engine.Mpf
 			_client = new MpfHardwareService.MpfHardwareServiceClient(_channel);
 		}
 
-		public void StartGame(Dictionary<string, bool> initialSwitches)
+		public void StartGame(Dictionary<string, bool> initialSwitches, bool handleStream = true)
 		{
 			var ms = new MachineState();
 			foreach (var sw in initialSwitches.Keys) {
 				ms.InitialSwitchStates.Add(sw, initialSwitches[sw]);
 			}
 
-			_commandsThread =  new Thread(() => ReceiveCommands(ms)) { IsBackground = true };
-			_commandsThread.Start();
+			Logger.Info("Starting client...");
+			_commandStream = _client.Start(ms);
+
+			if (handleStream) {
+				_commandsThread = new Thread(ReceiveCommands) { IsBackground = true };
+				_commandsThread.Start();
+			}
 
 			_switchStream = _client.SendSwitchChanges();
 		}
@@ -65,18 +70,12 @@ namespace VisualPinball.Engine.Mpf
 				{SwitchNumber = swName, SwitchState = swValue});
 		}
 
-		private async void ReceiveCommands(MachineState ms)
+		private async void ReceiveCommands()
 		{
-			Logger.Info("Starting client...");
-			_commandStream = _client.Start(ms);
-
 			Logger.Info("Client started, retrieving commands...");
-			var count = 0;
 			while (await _commandStream.ResponseStream.MoveNext()) {
-
 				var commands = _commandStream.ResponseStream.Current;
 				Logger.Info($"New command: {commands.CommandCase}");
-				count++;
 				switch (commands.CommandCase) {
 					case Commands.CommandOneofCase.None:
 						break;
@@ -110,9 +109,13 @@ namespace VisualPinball.Engine.Mpf
 			return _client.GetMachineDescription(new EmptyRequest());
 		}
 
-		public void Shutdown() {
-			_commandStream.Dispose();
+		public void Shutdown()
+		{
+			Logger.Info("Shutting down...");
+			_client.Quit(new QuitRequest());
+			_commandStream?.Dispose();
 			_channel.ShutdownAsync().Wait();
+			Logger.Info("All down.");
 		}
 	}
 }

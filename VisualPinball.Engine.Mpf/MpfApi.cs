@@ -27,6 +27,18 @@ namespace VisualPinball.Engine.Mpf
 			_spawner = new MpfSpawner(Path.GetFullPath(machineFolder));
 		}
 
+		public static MachineDescription GetMachineDescription(string machineFolder)
+		{
+			var client = new MpfClient();
+			var spawner = new MpfSpawner(machineFolder);
+			spawner.Spawn();
+			client.Connect("localhost:50051");
+			client.StartGame(new Dictionary<string, bool>(), false);
+			var description = client.GetMachineDescription();
+			client.Shutdown();
+			return description;
+		}
+
 		/// <summary>
 		/// Launches MPF in the background and connects to it via gRPC.
 		/// </summary>
