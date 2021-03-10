@@ -13,9 +13,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mpf.Vpe;
+using NLog;
 using UnityEngine;
 using VisualPinball.Engine.Game.Engines;
 using VisualPinball.Unity;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity
 {
@@ -46,14 +48,20 @@ namespace VisualPinball.Engine.Mpf.Unity
 		[SerializeField] private GamelogicEngineCoil[] availableCoils = new GamelogicEngineCoil[0];
 		[SerializeField] private GamelogicEngineLamp[] availableLamps = new GamelogicEngineLamp[0];
 
+		private Player _player;
 		private Dictionary<string, int> _switchIds = new Dictionary<string, int>();
+		private Dictionary<string, string> _switchNames = new Dictionary<string, string>();
 		private Dictionary<string, string> _coilNames = new Dictionary<string, string>();
 
-		private void Awake()
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+		public void OnInit(Player player, TableApi tableApi, BallManager ballManager)
 		{
+			_player = player;
 			_switchIds.Clear();
 			foreach (var sw in availableSwitches) {
 				_switchIds[sw.Id] = sw.InternalId;
+				_switchNames[sw.InternalId.ToString()] = sw.Id;
 			}
 			_coilNames.Clear();
 			foreach (var coil in availableCoils) {
@@ -68,10 +76,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 			_api.Client.OnConfigureHardwareRule += OnConfigureHardwareRule;
 			_api.Client.OnRemoveHardwareRule += OnRemoveHardwareRule;
 			_api.Client.OnFadeLight += OnFadeLight;
-		}
 
-		public void OnInit(Player player, TableApi tableApi, BallManager ballManager)
-		{
 			_api.StartGame(player.SwitchStatusesClosed);
 		}
 
@@ -80,7 +85,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 			if (_switchIds.ContainsKey(id)) {
 				_api.Switch(_switchIds[id].ToString(), isClosed);
 			} else {
-				Debug.LogError("Unmapped MPF switch " + id);
+				Logger.Error("Unmapped MPF switch " + id);
 			}
 		}
 
@@ -97,7 +102,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 			if (_coilNames.ContainsKey(e.CoilNumber)) {
 				OnCoilChanged?.Invoke(this, new CoilEventArgs(_coilNames[e.CoilNumber], true));
 			} else {
-				Debug.LogError("Unmapped MPF coil " + e.CoilNumber);
+				Logger.Error("Unmapped MPF coil " + e.CoilNumber);
 			}
 		}
 
@@ -106,26 +111,49 @@ namespace VisualPinball.Engine.Mpf.Unity
 			if (_coilNames.ContainsKey(e.CoilNumber)) {
 				OnCoilChanged?.Invoke(this, new CoilEventArgs(_coilNames[e.CoilNumber], false));
 			} else {
-				Debug.LogError("Unmapped MPF coil " + e.CoilNumber);
+				Logger.Error("Unmapped MPF coil " + e.CoilNumber);
 			}
 		}
 
 		private void OnPulseCoil(object sender, PulseCoilRequest e)
 		{
+			Logger.Info($"PULSING COIL {e.CoilNumber}");
 		}
 
 		private void OnFadeLight(object sender, FadeLightRequest e)
 		{
-		}
-
-		private void OnRemoveHardwareRule(object sender, RemoveHardwareRuleRequest e)
-		{
+			Logger.Info("FADING SOME LIGHTS");
 		}
 
 		private void OnConfigureHardwareRule(object sender, ConfigureHardwareRuleRequest e)
 		{
+			if (!_switchNames.ContainsKey(e.SwitchNumber)) {
+				Logger.Error("Unmapped MPF switch " + e.SwitchNumber);
+				return;
+			}
+			if (!_coilNames.ContainsKey(e.CoilNumber)) {
+				Logger.Error("Unmapped MPF coil " + e.CoilNumber);
+				return;
+			}
+
+			_player.AddDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]);
+			Logger.Info($"Added new hardware rule: {_switchNames[e.SwitchNumber]} -> {_coilNames[e.CoilNumber]}.");
 		}
 
+		private void OnRemoveHardwareRule(object sender, RemoveHardwareRuleRequest e)
+		{
+			if (!_switchNames.ContainsKey(e.SwitchNumber)) {
+				Logger.Error("Unmapped MPF coil " + e.SwitchNumber);
+				return;
+			}
+			if (!_coilNames.ContainsKey(e.CoilNumber)) {
+				Logger.Error("Unmapped MPF coil " + e.CoilNumber);
+				return;
+			}
+
+			_player.RemoveDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]);
+			Logger.Info($"Removed hardware rule: {_switchNames[e.SwitchNumber]} -> {_coilNames[e.CoilNumber]}.");
+		}
 
 		private void OnDestroy()
 		{
