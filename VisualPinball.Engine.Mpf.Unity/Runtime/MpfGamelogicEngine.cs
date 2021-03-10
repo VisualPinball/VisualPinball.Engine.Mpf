@@ -68,7 +68,11 @@ namespace VisualPinball.Engine.Mpf.Unity
 				_coilNames[coil.InternalId.ToString()] = coil.Id;
 			}
 			_api = new MpfApi(machineFolder);
-			_api.Launch();
+			_api.Launch(new MpfConsoleOptions {
+				ShowLogInsteadOfConsole = false,
+				VerboseLogging = true,
+				UseMediaController = false,
+			});
 
 			_api.Client.OnEnableCoil += OnEnableCoil;
 			_api.Client.OnDisableCoil += OnDisableCoil;

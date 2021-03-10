@@ -31,7 +31,7 @@ namespace VisualPinball.Engine.Mpf
 		{
 			var client = new MpfClient();
 			var spawner = new MpfSpawner(machineFolder);
-			spawner.Spawn();
+			spawner.Spawn(new MpfConsoleOptions());
 			client.Connect("localhost:50051");
 			client.StartGame(new Dictionary<string, bool>(), false);
 			var description = client.GetMachineDescription();
@@ -42,11 +42,12 @@ namespace VisualPinball.Engine.Mpf
 		/// <summary>
 		/// Launches MPF in the background and connects to it via gRPC.
 		/// </summary>
+		/// <param name="options">MPF options</param>
 		/// <param name="port">gRPC port to use for MPC/VPE communication</param>
 		/// <returns></returns>
-		public void Launch(int port = 50051)
+		public void Launch(MpfConsoleOptions options, int port = 50051)
 		{
-			_spawner.Spawn();
+			_spawner.Spawn(options);
 			Client.Connect($"localhost:{port}");
 		}
 

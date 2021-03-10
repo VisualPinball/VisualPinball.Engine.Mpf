@@ -31,7 +31,7 @@ namespace VisualPinball.Engine.Mpf
 			_machineFolder = Path.GetFileName(machineFolder);
 		}
 
-		public void Spawn()
+		public void Spawn(MpfConsoleOptions options)
 		{
 			var mpfExe = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "mpf.exe" : "mpf";
 			var mpfExePath = GetFullPath(mpfExe);
@@ -41,28 +41,36 @@ namespace VisualPinball.Engine.Mpf
 
 			_thread = new Thread(() => {
 				Thread.CurrentThread.IsBackground = true;
-				RunMpf(mpfExePath);
+				RunMpf(mpfExePath, options);
 			});
 
 			_thread.Start();
 			_ready.Wait();
 		}
 
-		private void RunMpf(string mpfExePath)
+		private void RunMpf(string mpfExePath, MpfConsoleOptions options)
 		{
+			var args = $"\"{_machineFolder}\"";
+			if (!options.UseMediaController) {
+				args += " -b";
+			}
+			if (options.ShowLogInsteadOfConsole) {
+				args += " -t";
+			}
+			if (options.VerboseLogging) {
+				args += " -v -V";
+			}
 			var info = new ProcessStartInfo {
 				FileName = mpfExePath,
 				WorkingDirectory = _pwd,
-				Arguments = $"\"{_machineFolder}\" -t -v -V -b",
-				UseShellExecute = false,
-				RedirectStandardOutput = true,
+				Arguments = args,
+				UseShellExecute = true,
+				RedirectStandardOutput = false,
+
 			};
 
-			using (var process = Process.Start(info))
-			using (var reader = process.StandardOutput) {
+			using (var process = Process.Start(info)) {
 				_ready.Release();
-				var result = reader.ReadToEnd();
-				Console.Write(result);
 				process.WaitForExit();
 			}
 		}
@@ -89,5 +97,17 @@ namespace VisualPinball.Engine.Mpf
 			}
 			return null;
 		}
+	}
+
+	/// <summary>
+	/// A few things we can configure when launching MPF
+	/// <seealso cref="https://docs.missionpinball.org/en/latest/running/commands/game.html">Documentation</seealso>
+	///
+	/// </summary>
+	public class MpfConsoleOptions
+	{
+		public bool UseMediaController;
+		public bool ShowLogInsteadOfConsole;
+		public bool VerboseLogging = true;
 	}
 }

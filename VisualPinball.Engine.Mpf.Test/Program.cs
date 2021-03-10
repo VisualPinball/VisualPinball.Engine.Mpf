@@ -38,7 +38,7 @@ namespace MpfTest
 			var s = Stopwatch.StartNew();
 			var mpfApi = new MpfApi(machineFolder);
 
-			mpfApi.Launch();
+			mpfApi.Launch(new MpfConsoleOptions { ShowLogInsteadOfConsole = false });
 
 			mpfApi.StartGame(new Dictionary<string, bool> {
 				{"sw_11", false},
@@ -60,9 +60,6 @@ namespace MpfTest
 			};
 			mpfApi.Client.OnFadeLight += (_, request) => {
 				Console.WriteLine($"[MPF] light fades ({request.CommonFadeMs}ms):");
-				foreach (var fade in request.Fades.ToList()) {
-					Console.WriteLine($"  l{fade.LightNumber} @{fade.TargetBrightness}");
-				}
 			};
 
 			var descr = mpfApi.GetMachineDescription();
@@ -76,7 +73,7 @@ namespace MpfTest
 						await mpfApi.Switch("0", true);
 						break;
 					case ConsoleKey.S:
-						await mpfApi.Switch("1", false);
+						await mpfApi.Switch("0", false);
 						break;
 				}
 			} while (key.Key != ConsoleKey.Escape);
