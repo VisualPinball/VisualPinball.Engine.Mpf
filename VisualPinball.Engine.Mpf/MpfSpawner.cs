@@ -64,14 +64,22 @@ namespace VisualPinball.Engine.Mpf
 				FileName = mpfExePath,
 				WorkingDirectory = _pwd,
 				Arguments = args,
-				UseShellExecute = true,
-				RedirectStandardOutput = false,
-
+				UseShellExecute = !options.CatchStdOut,
+				RedirectStandardOutput = options.CatchStdOut,
 			};
 
 			using (var process = Process.Start(info)) {
 				_ready.Release();
-				process.WaitForExit();
+				if (!options.CatchStdOut) {
+					process.WaitForExit();
+
+				} else {
+					using (var reader = process.StandardOutput) {
+						var result = reader.ReadToEnd();
+						Console.Write(result);
+						process.WaitForExit();
+					}
+				}
 			}
 		}
 
@@ -109,5 +117,6 @@ namespace VisualPinball.Engine.Mpf
 		public bool UseMediaController;
 		public bool ShowLogInsteadOfConsole;
 		public bool VerboseLogging = true;
+		public bool CatchStdOut;
 	}
 }

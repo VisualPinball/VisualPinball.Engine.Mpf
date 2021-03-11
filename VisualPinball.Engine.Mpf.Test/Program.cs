@@ -38,7 +38,10 @@ namespace MpfTest
 			var s = Stopwatch.StartNew();
 			var mpfApi = new MpfApi(machineFolder);
 
-			mpfApi.Launch(new MpfConsoleOptions { ShowLogInsteadOfConsole = false });
+			mpfApi.Launch(new MpfConsoleOptions {
+				ShowLogInsteadOfConsole = true,
+				CatchStdOut = true,
+			});
 
 			mpfApi.StartGame(new Dictionary<string, bool> {
 				{"sw_11", false},
