@@ -28,7 +28,13 @@ switches:
   s_trough_jam:
     number: 7
   s_plunger:
-    number: 10
+    number: 21
+  s_start:
+    number: 22
+    tags: start
+  s_right_inlane:
+    number: 23
+    tags: playfield_active
 
 coils:
   c_flipper_left_main:
@@ -69,9 +75,7 @@ flippers:
     main_coil: c_flipper_left_main
     hold_coil: c_flipper_left_hold
     activation_switch: s_left_flipper
-    enable_events: machine_reset_phase_3
   right_flipper:
     main_coil: c_flipper_right_main
     hold_coil: c_flipper_right_hold
     activation_switch: s_right_flipper
-    enable_events: machine_reset_phase_3
