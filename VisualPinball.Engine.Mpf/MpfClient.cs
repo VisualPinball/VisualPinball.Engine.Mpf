@@ -53,7 +53,7 @@ namespace VisualPinball.Engine.Mpf
 				ms.InitialSwitchStates.Add(sw, initialSwitches[sw]);
 			}
 
-			Logger.Info("Starting client...");
+			Logger.Info("Starting player with machine state: " + ms);
 			_commandStream = _client.Start(ms);
 
 			if (handleStream) {

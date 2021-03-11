@@ -39,12 +39,17 @@ namespace MpfTest
 			var mpfApi = new MpfApi(machineFolder);
 
 			mpfApi.Launch(new MpfConsoleOptions {
-				ShowLogInsteadOfConsole = true,
-				CatchStdOut = true,
+				//ShowLogInsteadOfConsole = true,
+				//CatchStdOut = true,
 			});
 
 			mpfApi.StartGame(new Dictionary<string, bool> {
-				{"sw_11", false},
+				{"1", true},
+				{"2", true},
+				{"3", true},
+				{"4", true},
+				{"5", true},
+				{"6", true},
 			});
 			mpfApi.Client.OnConfigureHardwareRule += (_, request) => {
 				Console.WriteLine($"[MPF] configure hw/rule: sw{request.SwitchNumber} -> c{request.CoilNumber} @{request.HoldPower} | pulse: {request.PulseMs}ms @{request.PulsePower}");

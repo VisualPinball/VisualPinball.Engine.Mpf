@@ -81,7 +81,16 @@ namespace VisualPinball.Engine.Mpf.Unity
 			_api.Client.OnRemoveHardwareRule += OnRemoveHardwareRule;
 			_api.Client.OnFadeLight += OnFadeLight;
 
-			_api.StartGame(player.SwitchStatusesClosed);
+			// map initial switches
+			var mappedSwitchStatuses = new Dictionary<string, bool>();
+			foreach (var swName in player.SwitchStatusesClosed.Keys) {
+				if (_switchIds.ContainsKey(swName)) {
+					mappedSwitchStatuses[_switchIds[swName].ToString()] = player.SwitchStatusesClosed[swName];
+				} else {
+					Logger.Warn($"Unknown intial switch name \"{swName}\".");
+				}
+			}
+			_api.StartGame(mappedSwitchStatuses);
 		}
 
 		public void Switch(string id, bool isClosed)
