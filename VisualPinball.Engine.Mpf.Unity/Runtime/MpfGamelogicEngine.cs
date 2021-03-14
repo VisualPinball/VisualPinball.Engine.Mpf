@@ -130,7 +130,12 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		private void OnPulseCoil(object sender, PulseCoilRequest e)
 		{
-			Logger.Info($"PULSING COIL {e.CoilNumber}");
+			if (_coilNames.ContainsKey(e.CoilNumber)) {
+				OnCoilChanged?.Invoke(this, new CoilEventArgs(_coilNames[e.CoilNumber], true));
+				_player.ScheduleAction((int)e.PulseMs, () => OnCoilChanged?.Invoke(this, new CoilEventArgs(_coilNames[e.CoilNumber], false)));
+			} else {
+				Logger.Error("Unmapped MPF coil " + e.CoilNumber);
+			}
 		}
 
 		private void OnFadeLight(object sender, FadeLightRequest e)
