@@ -70,6 +70,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 			if (GUILayout.Button("Populate Hardware")) {
 				if (EditorUtility.DisplayDialog("Mission Pinball Framework", "This will clear all linked switches, coils and lamps and re-populate them. You sure you want to do that?", "Yes", "No")) {
 					_tableAuthoring.RepopulateHardware(_mpfEngine);
+					TableSelector.Instance.TableUpdated();
 					SceneView.RepaintAll();
 				}
 			}
