@@ -14,6 +14,7 @@
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using VisualPinball.Unity;
 using VisualPinball.Unity.Editor;
 
 namespace VisualPinball.Engine.Mpf.Unity.Editor
@@ -22,17 +23,29 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 	public class MpfGamelogicEngineInspector : UnityEditor.Editor
 	{
 		private MpfGamelogicEngine _mpfEngine;
+		private TableAuthoring _tableAuthoring;
+
 		private bool _foldoutSwitches;
 		private bool _foldoutCoils;
 		private bool _foldoutLamps;
 
+		private bool HasData => _mpfEngine.AvailableSwitches.Length + _mpfEngine.AvailableCoils.Length + _mpfEngine.AvailableLamps.Length > 0;
+
 		private void OnEnable()
 		{
 			_mpfEngine = target as MpfGamelogicEngine;
+			if (_mpfEngine != null) {
+				_tableAuthoring = _mpfEngine.gameObject.GetComponentInParent<TableAuthoring>();
+			}
 		}
 
 		public override void OnInspectorGUI()
 		{
+			if (!_tableAuthoring) {
+				EditorGUILayout.HelpBox($"Cannot find table. The gamelogic engine must be applied to a table object or one of its children.", MessageType.Error);
+				return;
+			}
+
 			var pos = EditorGUILayout.GetControlRect(true, 18f);
 			pos = EditorGUI.PrefixLabel(pos, new GUIContent("Machine Folder"));
 
@@ -43,7 +56,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 				}
 			}
 
-			if (GUILayout.Button("Synchronize")) {
+			if (GUILayout.Button("Get Machine Description")) {
 				if (!Directory.Exists(_mpfEngine.machineFolder)) {
 					EditorUtility.DisplayDialog("Mission Pinball Framework", "Gotta choose a valid machine folder first!", "Okay");
 				} else if (!Directory.Exists(Path.Combine(_mpfEngine.machineFolder, "config"))) {
@@ -52,6 +65,16 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 					_mpfEngine.GetMachineDescription();
 				}
 			}
+
+			EditorGUI.BeginDisabledGroup(!HasData);
+			if (GUILayout.Button("Populate Hardware")) {
+				if (EditorUtility.DisplayDialog("Mission Pinball Framework", "This will clear all linked switches, coils and lamps and re-populate them. You sure you want to do that?", "Yes", "No")) {
+					_tableAuthoring.RepopulateHardware(_mpfEngine);
+					SceneView.RepaintAll();
+				}
+			}
+			EditorGUI.EndDisabledGroup();
+
 
 			var naStyle = new GUIStyle(GUI.skin.label) {
 				fontStyle = FontStyle.Italic
