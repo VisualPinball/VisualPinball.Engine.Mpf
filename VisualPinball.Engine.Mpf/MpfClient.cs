@@ -75,7 +75,6 @@ namespace VisualPinball.Engine.Mpf
 			Logger.Info("Client started, retrieving commands...");
 			while (await _commandStream.ResponseStream.MoveNext()) {
 				var commands = _commandStream.ResponseStream.Current;
-				Logger.Info($"New command: {commands.CommandCase}");
 				switch (commands.CommandCase) {
 					case Commands.CommandOneofCase.None:
 						break;
