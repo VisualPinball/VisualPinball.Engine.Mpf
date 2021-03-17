@@ -52,6 +52,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 		private Dictionary<string, int> _switchIds = new Dictionary<string, int>();
 		private Dictionary<string, string> _switchNames = new Dictionary<string, string>();
 		private Dictionary<string, string> _coilNames = new Dictionary<string, string>();
+		private Dictionary<string, string> _lampNames = new Dictionary<string, string>();
 
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -66,6 +67,10 @@ namespace VisualPinball.Engine.Mpf.Unity
 			_coilNames.Clear();
 			foreach (var coil in availableCoils) {
 				_coilNames[coil.InternalId.ToString()] = coil.Id;
+			}
+			_lampNames.Clear();
+			foreach (var lamp in availableLamps) {
+				_lampNames[lamp.InternalId.ToString()] = lamp.Id;
 			}
 			_api = new MpfApi(machineFolder);
 			_api.Launch(new MpfConsoleOptions {
@@ -149,7 +154,17 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		private void OnFadeLight(object sender, FadeLightRequest e)
 		{
-			_player.Queue(() => Logger.Error("TODO: FADE LIGHTS."));
+			var args = new List<LampEventArgs>();
+			foreach (var fade in e.Fades) {
+				if (_lampNames.ContainsKey(fade.LightNumber)) {
+					args.Add(new LampEventArgs(_lampNames[fade.LightNumber], (int)(fade.TargetBrightness * 255)));
+				} else {
+					Logger.Error("Unmapped MPF lamp " + fade.LightNumber);
+				}
+			}
+			_player.Queue(() => {
+				OnLampsChanged?.Invoke(this, new LampsEventArgs(args.ToArray()));
+			});
 		}
 
 		private void OnConfigureHardwareRule(object sender, ConfigureHardwareRuleRequest e)
@@ -184,13 +199,15 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		private void OnDestroy()
 		{
-			_api.Client.OnEnableCoil -= OnEnableCoil;
-			_api.Client.OnDisableCoil -= OnDisableCoil;
-			_api.Client.OnPulseCoil -= OnPulseCoil;
-			_api.Client.OnConfigureHardwareRule -= OnConfigureHardwareRule;
-			_api.Client.OnRemoveHardwareRule -= OnRemoveHardwareRule;
-			_api.Client.OnFadeLight -= OnFadeLight;
-			_api.Dispose();
+			if (_api != null) {
+				_api.Client.OnEnableCoil -= OnEnableCoil;
+				_api.Client.OnDisableCoil -= OnDisableCoil;
+				_api.Client.OnPulseCoil -= OnPulseCoil;
+				_api.Client.OnConfigureHardwareRule -= OnConfigureHardwareRule;
+				_api.Client.OnRemoveHardwareRule -= OnRemoveHardwareRule;
+				_api.Client.OnFadeLight -= OnFadeLight;
+				_api.Dispose();
+			}
 		}
 	}
 }
