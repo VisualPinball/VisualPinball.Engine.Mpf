@@ -30,6 +30,7 @@ namespace VisualPinball.Engine.Mpf
 		public event EventHandler<DisableCoilRequest> OnDisableCoil;
 		public event EventHandler<ConfigureHardwareRuleRequest> OnConfigureHardwareRule;
 		public event EventHandler<RemoveHardwareRuleRequest> OnRemoveHardwareRule;
+		public event EventHandler<SetDmdFrameRequest> OnDmdFrame;
 
 		private Channel _channel;
 		private MpfHardwareService.MpfHardwareServiceClient _client;
@@ -95,6 +96,9 @@ namespace VisualPinball.Engine.Mpf
 						break;
 					case Commands.CommandOneofCase.RemoveHardwareRule:
 						OnRemoveHardwareRule?.Invoke(this, commands.RemoveHardwareRule);
+						break;
+					case Commands.CommandOneofCase.DmdFrameRequest:
+						OnDmdFrame?.Invoke(this, commands.DmdFrameRequest);
 						break;
 					default:
 						throw new ArgumentOutOfRangeException();

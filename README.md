@@ -40,7 +40,7 @@ Or, if you already have it:
 
 `pip install mpf mpf-mc --pre --upgrade`
 
-After that, `mpf --version` should return at least **MPF v0.55.0-dev.12**.
+After that, `mpf --version` should return at least **MPF v0.55.0-dev.37**.
 
 ## Usage
 

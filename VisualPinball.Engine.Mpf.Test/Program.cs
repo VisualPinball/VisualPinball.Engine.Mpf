@@ -69,6 +69,9 @@ namespace MpfTest
 			mpfApi.Client.OnFadeLight += (_, request) => {
 				Console.WriteLine($"[MPF] light fades ({request.CommonFadeMs}ms):");
 			};
+			mpfApi.Client.OnDmdFrame += (_, request) => {
+				Console.WriteLine($"[MPF] new DMD frame!");
+			};
 
 			var descr = mpfApi.GetMachineDescription();
 			Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");
