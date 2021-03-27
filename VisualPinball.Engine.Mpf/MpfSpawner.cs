@@ -114,7 +114,7 @@ namespace VisualPinball.Engine.Mpf
 	/// </summary>
 	public class MpfConsoleOptions
 	{
-		public bool UseMediaController;
+		public bool UseMediaController = true;
 		public bool ShowLogInsteadOfConsole;
 		public bool VerboseLogging = true;
 		public bool CatchStdOut;

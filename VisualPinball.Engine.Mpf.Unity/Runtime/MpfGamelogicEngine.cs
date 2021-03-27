@@ -36,8 +36,9 @@ namespace VisualPinball.Engine.Mpf.Unity
 		public event EventHandler<LampEventArgs> OnLampChanged;
 		public event EventHandler<LampsEventArgs> OnLampsChanged;
 		public event EventHandler<LampColorEventArgs> OnLampColorChanged;
-
 		public event EventHandler<CoilEventArgs> OnCoilChanged;
+		public event EventHandler<AvailableDisplays> OnDisplaysAvailable;
+		public event EventHandler<DisplayFrameData> OnDisplayFrame;
 
 		[NonSerialized]
 		private MpfApi _api;
@@ -53,6 +54,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 		private Dictionary<string, string> _switchNames = new Dictionary<string, string>();
 		private Dictionary<string, string> _coilNames = new Dictionary<string, string>();
 		private Dictionary<string, string> _lampNames = new Dictionary<string, string>();
+
+		private bool _displaysAnnounced;
 
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -85,6 +88,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 			_api.Client.OnConfigureHardwareRule += OnConfigureHardwareRule;
 			_api.Client.OnRemoveHardwareRule += OnRemoveHardwareRule;
 			_api.Client.OnFadeLight += OnFadeLight;
+			_api.Client.OnDmdFrame += OnDmdFrame;
 
 			// map initial switches
 			var mappedSwitchStatuses = new Dictionary<string, bool>();
@@ -195,6 +199,19 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 			_player.Queue(() => _player.RemoveDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));
 			Logger.Info($"<-- remove hardware rule: {_switchNames[e.SwitchNumber]} -> {_coilNames[e.CoilNumber]}.");
+		}
+
+		private void OnDmdFrame(object sender, SetDmdFrameRequest frame)
+		{
+			if (!_displaysAnnounced) {
+				_displaysAnnounced = true;
+				var config = _api.GetMachineDescription();
+				foreach (var dmd in config.Dmds) {
+					OnDisplaysAvailable?.Invoke(this, new AvailableDisplays(
+						new DisplayConfig(dmd.Name, DisplayType.Dmd2PinMame, dmd.Width, dmd.Height)));
+				}
+			}
+			OnDisplayFrame?.Invoke(this, new DisplayFrameData(frame.Name, frame.FrameData()));
 		}
 
 		private void OnDestroy()
