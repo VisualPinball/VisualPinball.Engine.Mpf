@@ -29,6 +29,14 @@ a single binary. So, what Unity is getting is:
   all its .NET dependencies
 - `grpc_csharp_ext.dll`, which is the native gRCP library used by the C# wrapper.
 
+### Unity Package
+
+The goal of this repo is to use it within Unity. In order to do that, open the
+Package Manager in Unity, and add `org.visualpinball.engine.missionpinball` under 
+*Add package from git URL*.
+
+The Unity package is build and published to our registry on every merge to master.
+
 ## Setup
 
 You currently need Python and MPF installed locally.
@@ -42,23 +50,24 @@ Or, if you already have it:
 
 After that, `mpf --version` should return at least **MPF v0.55.0-dev.37**.
 
-## Usage
+## Development Setup
 
-Test code in the repo. Init:
+In order to import the package locally instead from our registry, clone and
+compile it. This will copy the necessary binaries into the Unity folder. Only
+then, import the project into Unity.
 
-```cs
-var mpfApi = new MpfApi(@"path\to\machine\folder");
+Since the Unity folder contains `.meta` files of the binaries, but not the 
+actual binaries, `.meta` files of uncompiled platforms are cleaned up by Unity.
+In order to not accidentally commit those files, we recommend to ignore them:
 
-// spawn MPF and connect to it
-await mpfApi.Launch();
-
-// start MPF
-mpfApi.Start();
-
-// retrieve machine configuration
-var descr = await mpfApi.GetMachineDescription();
-
-Console.WriteLine($"Description: {descr}");
+```bash
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/libgrpc_csharp_ext.so.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/libgrpc_csharp_ext.dylib.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/grpc_csharp_ext.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/grpc_csharp_ext.dll.meta
 ```
 
 ## License
