@@ -208,10 +208,10 @@ namespace VisualPinball.Engine.Mpf.Unity
 				var config = _api.GetMachineDescription();
 				foreach (var dmd in config.Dmds) {
 					OnDisplaysAvailable?.Invoke(this, new AvailableDisplays(
-						new DisplayConfig(dmd.Name, DisplayType.Dmd2PinMame, dmd.Width, dmd.Height)));
+						new DisplayConfig(dmd.Name, dmd.Width, dmd.Height)));
 				}
 			}
-			OnDisplayFrame?.Invoke(this, new DisplayFrameData(frame.Name, frame.FrameData()));
+			OnDisplayFrame?.Invoke(this, new DisplayFrameData(frame.Name, DisplayFrameFormat.Dmd8, frame.FrameData()));
 		}
 
 		private void OnDestroy()
