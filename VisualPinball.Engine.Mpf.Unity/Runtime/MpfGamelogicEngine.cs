@@ -224,13 +224,14 @@ namespace VisualPinball.Engine.Mpf.Unity
 					Logger.Info($"[MPF] Announcing display \"{dmd.Name}\" @ {dmd.Width}x{dmd.Height}");
 					lock (_dispatchQueue) {
 						_dispatchQueue.Enqueue(() => OnDisplaysAvailable?.Invoke(this,
-							new AvailableDisplays(new DisplayConfig(dmd.Name, dmd.Width, dmd.Height))));
+							new AvailableDisplays(new DisplayConfig(dmd.Name, dmd.Width, dmd.Height, true))));
 					}
 				}
 				Logger.Info("[MPF] Displays announced.");
 			}
 
 			lock (_dispatchQueue) {
+
 				_dispatchQueue.Enqueue(() => OnDisplayFrame?.Invoke(this,
 					new DisplayFrameData(frame.Name, DisplayFrameFormat.Dmd24, frame.FrameData())));
 			}
