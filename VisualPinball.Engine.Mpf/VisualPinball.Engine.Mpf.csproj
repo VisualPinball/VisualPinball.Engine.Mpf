@@ -46,6 +46,10 @@
     <InputAssemblies Include="$(OutDir)Grpc.Core.dll" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="machine\logs" />
+  </ItemGroup>
+
   <Target Name="ILRepack" AfterTargets="Build">
     <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) == 'true'" Command="tools\ILRepack.exe /target:library /internalize $(OutDir)$(AssemblyName).dll @(InputAssemblies, ' ') /out:$(OutDir)$(AssemblyName).dll" />
     <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) != 'true'" Command="mono tools/ILRepack.exe /target:library /internalize $(OutDir)$(AssemblyName).dll @(InputAssemblies, ' ') /out:$(OutDir)$(AssemblyName).dll" />

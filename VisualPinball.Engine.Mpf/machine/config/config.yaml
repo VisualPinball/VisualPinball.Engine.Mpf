@@ -1,7 +1,39 @@
 #config_version=5
 
+displays:
+  dmd:  # source display for the DMD
+    width: 128
+    height: 32
+    default: true
+
 hardware:
   platform: visual_pinball_engine
+
+rgb_dmds:
+  default:
+    fps: 30
+
+mpf-mc:
+  fps: 30
+
+slides:
+  dmd_slide_1:  # slide we'll show on the physical DMD
+    - type: text
+      text: MISSION PINBALL
+      font_size: 30
+      color: red
+      x: 0
+      animations:
+        add_to_slide:
+          - property: x
+            value: 250
+            duration: 30
+            relative: true
+
+slide_player:
+  init_done:
+    dmd_slide_1:
+      target: dmd
 
 vpe:
   debug: True

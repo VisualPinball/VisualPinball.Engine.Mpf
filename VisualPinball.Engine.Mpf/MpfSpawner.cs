@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using NLog;
 
 namespace VisualPinball.Engine.Mpf
 {
@@ -24,6 +25,7 @@ namespace VisualPinball.Engine.Mpf
 		private readonly string _machineFolder;
 
 		private readonly SemaphoreSlim _ready = new SemaphoreSlim(0, 1);
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public MpfSpawner(string machineFolder)
 		{
@@ -51,9 +53,12 @@ namespace VisualPinball.Engine.Mpf
 		private void RunMpf(string mpfExePath, MpfConsoleOptions options)
 		{
 			var args = $"\"{_machineFolder}\"";
-			if (!options.UseMediaController) {
+			if (options.UseMediaController) {
+				args = "both " + args;
+			} else {
 				args += " -b";
 			}
+
 			if (options.ShowLogInsteadOfConsole) {
 				args += " -t";
 			}
@@ -67,6 +72,8 @@ namespace VisualPinball.Engine.Mpf
 				UseShellExecute = !options.CatchStdOut,
 				RedirectStandardOutput = options.CatchStdOut,
 			};
+
+			Logger.Info($"[MPF] Spawning: > {mpfExePath} {args}");
 
 			using (var process = Process.Start(info)) {
 				_ready.Release();

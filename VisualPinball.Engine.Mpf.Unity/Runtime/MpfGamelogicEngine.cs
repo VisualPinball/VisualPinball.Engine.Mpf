@@ -57,6 +57,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		private bool _displaysAnnounced;
 
+		private readonly Queue<Action> _dispatchQueue = new Queue<Action>();
+
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		public void OnInit(Player player, TableApi tableApi, BallManager ballManager)
@@ -79,7 +81,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 			_api.Launch(new MpfConsoleOptions {
 				ShowLogInsteadOfConsole = false,
 				VerboseLogging = true,
-				UseMediaController = false,
+				UseMediaController = true,
 			});
 
 			_api.Client.OnEnableCoil += OnEnableCoil;
@@ -100,6 +102,16 @@ namespace VisualPinball.Engine.Mpf.Unity
 				}
 			}
 			_api.StartGame(mappedSwitchStatuses);
+			Logger.Info("Game started.");
+		}
+
+		private void Update()
+		{
+			lock (_dispatchQueue) {
+				while (_dispatchQueue.Count > 0) {
+					_dispatchQueue.Dequeue().Invoke();
+				}
+			}
 		}
 
 		public void Switch(string id, bool isClosed)
@@ -203,15 +215,25 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		private void OnDmdFrame(object sender, SetDmdFrameRequest frame)
 		{
+			Logger.Info($"<-- dmd frame: {frame.Name}");
 			if (!_displaysAnnounced) {
 				_displaysAnnounced = true;
 				var config = _api.GetMachineDescription();
+				Logger.Info($"[MPF] Announcing {config.Dmds} display(s)");
 				foreach (var dmd in config.Dmds) {
-					OnDisplaysAvailable?.Invoke(this, new AvailableDisplays(
-						new DisplayConfig(dmd.Name, dmd.Width, dmd.Height)));
+					Logger.Info($"[MPF] Announcing display \"{dmd.Name}\" @ {dmd.Width}x{dmd.Height}");
+					lock (_dispatchQueue) {
+						_dispatchQueue.Enqueue(() => OnDisplaysAvailable?.Invoke(this,
+							new AvailableDisplays(new DisplayConfig(dmd.Name, dmd.Width, dmd.Height))));
+					}
 				}
+				Logger.Info("[MPF] Displays announced.");
 			}
-			OnDisplayFrame?.Invoke(this, new DisplayFrameData(frame.Name, DisplayFrameFormat.Dmd8, frame.FrameData()));
+
+			lock (_dispatchQueue) {
+				_dispatchQueue.Enqueue(() => OnDisplayFrame?.Invoke(this,
+					new DisplayFrameData(frame.Name, DisplayFrameFormat.Dmd24, frame.FrameData())));
+			}
 		}
 
 		private void OnDestroy()
@@ -223,6 +245,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 				_api.Client.OnConfigureHardwareRule -= OnConfigureHardwareRule;
 				_api.Client.OnRemoveHardwareRule -= OnRemoveHardwareRule;
 				_api.Client.OnFadeLight -= OnFadeLight;
+				_api.Client.OnDmdFrame -= OnDmdFrame;
 				_api.Dispose();
 			}
 		}
