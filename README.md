@@ -1,7 +1,8 @@
 # Visual Pinball Engine - MPF Gamelogic Engine
-*Enables the Mission Pinball Framework to drive VPE*
 
 [![UPM Package](https://img.shields.io/npm/v/org.visualpinball.engine.missionpinball?label=org.visualpinball.engine.missionpinball&registry_uri=https://registry.visualpinball.org&color=%2333cf57&logo=unity&style=flat)](https://registry.visualpinball.org/-/web/detail/org.visualpinball.engine.missionpinball)
+
+*Enables the Mission Pinball Framework to drive VPE*
 
 ## Structure
 
@@ -14,6 +15,7 @@ This project contains three folders:
 - `VisualPinball.Engine.Mpf.Unity` is the Unity UPM package that plugs into 
   VPE and implements the gamelogic engine.
   
+
 Currently, only the first two projects are contained in the provided VS 
 solution. In the future we might add the Unity project with its dependencies,
 but for now you'll need to open it through Unity.
