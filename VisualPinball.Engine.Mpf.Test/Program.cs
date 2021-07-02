@@ -1,4 +1,4 @@
-﻿// Visual Pinball Engine
+// Visual Pinball Engine
 // Copyright (C) 2021 freezy and VPE Team
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -13,7 +13,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using VisualPinball.Engine.Mpf;
 
@@ -51,6 +50,7 @@ namespace MpfTest
 				{"5", true},
 				{"6", true},
 			});
+
 			mpfApi.Client.OnConfigureHardwareRule += (_, request) => {
 				Console.WriteLine($"[MPF] configure hw/rule: sw{request.SwitchNumber} -> c{request.CoilNumber} @{request.HoldPower} | pulse: {request.PulseMs}ms @{request.PulsePower}");
 			};
@@ -73,8 +73,14 @@ namespace MpfTest
 				Console.WriteLine($"[MPF] new DMD frame!");
 			};
 
-			var descr = mpfApi.GetMachineDescription();
-			Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");
+			try {
+				var descr = mpfApi.GetMachineDescription();
+				Console.WriteLine($"Description: {descr} in {s.ElapsedMilliseconds}ms");
+			}
+
+			catch(Exception e) {
+				Console.WriteLine($"Unable to get description: {e.Message} in {s.ElapsedMilliseconds}ms");
+			}
 
 			ConsoleKeyInfo key;
 			do {

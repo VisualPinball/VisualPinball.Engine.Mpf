@@ -1,4 +1,4 @@
-﻿// Visual Pinball Engine
+// Visual Pinball Engine
 // Copyright (C) 2021 freezy and VPE Team
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -126,10 +126,21 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		public void GetMachineDescription()
 		{
-			var md = MpfApi.GetMachineDescription(machineFolder);
-			availableSwitches = md.GetSwitches().ToArray();
-			availableCoils = md.GetCoils().ToArray();
-			availableLamps = md.GetLights().ToArray();
+			MachineDescription md = null;
+
+			try {
+				md = MpfApi.GetMachineDescription(machineFolder);
+			}
+
+			catch (Exception e) {
+				Logger.Error($"Unable to get machine description. Check maching config. {e.Message}");
+			}
+
+			if (md != null) { 
+				availableSwitches = md.GetSwitches().ToArray();
+				availableCoils = md.GetCoils().ToArray();
+				availableLamps = md.GetLights().ToArray();
+			}
 		}
 
 		private void OnEnableCoil(object sender, EnableCoilRequest e)

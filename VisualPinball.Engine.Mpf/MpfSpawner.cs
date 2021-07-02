@@ -1,4 +1,4 @@
-﻿// Visual Pinball Engine
+// Visual Pinball Engine
 // Copyright (C) 2021 freezy and VPE Team
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -76,6 +76,8 @@ namespace VisualPinball.Engine.Mpf
 			Logger.Info($"[MPF] Spawning: > {mpfExePath} {args}");
 
 			using (var process = Process.Start(info)) {
+				Thread.Sleep(1500);
+
 				_ready.Release();
 				if (!options.CatchStdOut) {
 					process.WaitForExit();

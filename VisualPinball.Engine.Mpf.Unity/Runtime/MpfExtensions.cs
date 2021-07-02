@@ -1,4 +1,4 @@
-﻿// Visual Pinball Engine
+// Visual Pinball Engine
 // Copyright (C) 2021 freezy and VPE Team
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -9,6 +9,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -16,11 +17,15 @@ using Mpf.Vpe;
 using VisualPinball.Engine.Common;
 using VisualPinball.Engine.Game.Engines;
 using VisualPinball.Unity;
+using NLog;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity
 {
 	public static class MpfExtensions
 	{
+		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
 		public static IEnumerable<GamelogicEngineSwitch> GetSwitches(this MachineDescription md)
 		{
 			return md.Switches.Select(sw => {
@@ -103,7 +108,10 @@ namespace VisualPinball.Engine.Mpf.Unity
 		public static IEnumerable<GamelogicEngineLamp> GetLights(this MachineDescription md)
 		{
 			// todo color
-			return md.Lights.Select(light => new GamelogicEngineLamp(light.Name, int.Parse(light.HardwareChannelColor)));
+			return md.Lights.Select(light => {
+				Logger.Info(light);
+				return new GamelogicEngineLamp(light.Name, int.Parse(light.HardwareChannelNumber));
+			});
 		}
 	}
 }

@@ -1,4 +1,4 @@
-﻿// Visual Pinball Engine
+// Visual Pinball Engine
 // Copyright (C) 2021 freezy and VPE Team
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -74,35 +74,42 @@ namespace VisualPinball.Engine.Mpf
 		private async void ReceiveCommands()
 		{
 			Logger.Info("Client started, retrieving commands...");
-			while (await _commandStream.ResponseStream.MoveNext()) {
-				var commands = _commandStream.ResponseStream.Current;
-				switch (commands.CommandCase) {
-					case Commands.CommandOneofCase.None:
-						break;
-					case Commands.CommandOneofCase.FadeLight:
-						OnFadeLight?.Invoke(this, commands.FadeLight);
-						break;
-					case Commands.CommandOneofCase.PulseCoil:
-						OnPulseCoil?.Invoke(this, commands.PulseCoil);
-						break;
-					case Commands.CommandOneofCase.EnableCoil:
-						OnEnableCoil?.Invoke(this, commands.EnableCoil);
-						break;
-					case Commands.CommandOneofCase.DisableCoil:
-						OnDisableCoil?.Invoke(this, commands.DisableCoil);
-						break;
-					case Commands.CommandOneofCase.ConfigureHardwareRule:
-						OnConfigureHardwareRule?.Invoke(this, commands.ConfigureHardwareRule);
-						break;
-					case Commands.CommandOneofCase.RemoveHardwareRule:
-						OnRemoveHardwareRule?.Invoke(this, commands.RemoveHardwareRule);
-						break;
-					case Commands.CommandOneofCase.DmdFrameRequest:
-						OnDmdFrame?.Invoke(this, commands.DmdFrameRequest);
-						break;
-					default:
-						throw new ArgumentOutOfRangeException();
+
+			try {
+				while (await _commandStream.ResponseStream.MoveNext()) {
+					var commands = _commandStream.ResponseStream.Current;
+					switch (commands.CommandCase) {
+						case Commands.CommandOneofCase.None:
+							break;
+						case Commands.CommandOneofCase.FadeLight:
+							OnFadeLight?.Invoke(this, commands.FadeLight);
+							break;
+						case Commands.CommandOneofCase.PulseCoil:
+							OnPulseCoil?.Invoke(this, commands.PulseCoil);
+							break;
+						case Commands.CommandOneofCase.EnableCoil:
+							OnEnableCoil?.Invoke(this, commands.EnableCoil);
+							break;
+						case Commands.CommandOneofCase.DisableCoil:
+							OnDisableCoil?.Invoke(this, commands.DisableCoil);
+							break;
+						case Commands.CommandOneofCase.ConfigureHardwareRule:
+							OnConfigureHardwareRule?.Invoke(this, commands.ConfigureHardwareRule);
+							break;
+						case Commands.CommandOneofCase.RemoveHardwareRule:
+							OnRemoveHardwareRule?.Invoke(this, commands.RemoveHardwareRule);
+							break;
+						case Commands.CommandOneofCase.DmdFrameRequest:
+							OnDmdFrame?.Invoke(this, commands.DmdFrameRequest);
+							break;
+						default:
+							throw new ArgumentOutOfRangeException();
+					}
 				}
+			}
+
+			catch(RpcException e) {
+				Logger.Error($"Unable to retrieve commands: Status={e.Status}");
 			}
 		}
 
