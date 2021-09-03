@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using Mpf.Vpe;
 using VisualPinball.Engine.Common;
 using VisualPinball.Engine.Game.Engines;
+using VisualPinball.Unity;
 
 namespace VisualPinball.Engine.Mpf.Unity
 {
@@ -64,31 +65,28 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		public static IEnumerable<GamelogicEngineCoil> GetCoils(this MachineDescription md)
 		{
-			var leftFlipperCoil = string.Empty;
-			var rightFlipperCoil = string.Empty;
-			var leftFlipperHoldCoil = string.Empty;
-			var rightFlipperHoldCoil = string.Empty;
-
 			var coils = md.Coils.Select(coil => {
 				var gleCoil = new GamelogicEngineCoil(coil.Name, int.Parse(coil.HardwareNumber));
 
 				if (Regex.Match(coil.Name, "(l(eft)?_?flipper|flipper_?l(eft)?_?(main)?)$", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Left Flipper";
-					gleCoil.PlayfieldItemHint = "^(LeftFlipper|LFlipper|FlipperLeft|FlipperL)$";
-					leftFlipperCoil = coil.Name;
+					gleCoil.DeviceHint = "^(LeftFlipper|LFlipper|FlipperLeft|FlipperL)$";
+					gleCoil.DeviceItemHint = FlipperAuthoring.MainCoilItem;
 
 				} else if (Regex.Match(coil.Name, "(l(eft)?_?flipper|flipper_?l(eft)?)_?hold$", RegexOptions.IgnoreCase).Success) {
-					gleCoil.Description = "Left Flipper (hold)";
-					leftFlipperHoldCoil = coil.Name;
+					gleCoil.Description = "Left Flipper (Hold)";
+					gleCoil.DeviceHint = "^(LeftFlipper|LFlipper|FlipperLeft|FlipperL)$";
+					gleCoil.DeviceItemHint = FlipperAuthoring.HoldCoilItem;
 
 				} else if (Regex.Match(coil.Name, "(r(ight)?_?flipper|flipper_?r(ight)?_?(main)?)$", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Right Flipper";
-					gleCoil.PlayfieldItemHint = "^(RightFlipper|RFlipper|FlipperRight|FlipperR)$";
-					rightFlipperCoil = coil.Name;
+					gleCoil.DeviceHint = "^(RightFlipper|RFlipper|FlipperRight|FlipperR)$";
+					gleCoil.DeviceItemHint = FlipperAuthoring.HoldCoilItem;
 
 				} else if (Regex.Match(coil.Name, "(r(ight)?_?flipper|flipper_?r(ight)?)_?hold$", RegexOptions.IgnoreCase).Success) {
-					gleCoil.Description = "Right Flipper (hold)";
-					rightFlipperHoldCoil = coil.Name;
+					gleCoil.Description = "Right Flipper (Hold)";
+					gleCoil.DeviceHint = "^(RightFlipper|RFlipper|FlipperRight|FlipperR)$";
+					gleCoil.DeviceItemHint = FlipperAuthoring.MainCoilItem;
 
 				} else if (Regex.Match(coil.Name, "trough_?eject", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Trough Eject";
@@ -98,14 +96,6 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 				return gleCoil;
 			}).ToArray();
-
-			foreach (var coil in coils) {
-				if (coil.Id == leftFlipperHoldCoil) {
-					coil.MainCoilIdOfHoldCoil = leftFlipperCoil;
-				} else if (coil.Id == rightFlipperHoldCoil) {
-					coil.MainCoilIdOfHoldCoil = rightFlipperCoil;
-				}
-			}
 
 			return coils;
 		}
