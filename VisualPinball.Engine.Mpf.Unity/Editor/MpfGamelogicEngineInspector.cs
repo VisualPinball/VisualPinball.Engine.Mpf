@@ -23,7 +23,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 	public class MpfGamelogicEngineInspector : UnityEditor.Editor
 	{
 		private MpfGamelogicEngine _mpfEngine;
-		private TableAuthoring _tableAuthoring;
+		private TableComponent _tableComponent;
 
 		private bool _foldoutSwitches;
 		private bool _foldoutCoils;
@@ -35,13 +35,13 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 		{
 			_mpfEngine = target as MpfGamelogicEngine;
 			if (_mpfEngine != null) {
-				_tableAuthoring = _mpfEngine.gameObject.GetComponentInParent<TableAuthoring>();
+				_tableComponent = _mpfEngine.gameObject.GetComponentInParent<TableComponent>();
 			}
 		}
 
 		public override void OnInspectorGUI()
 		{
-			if (!_tableAuthoring) {
+			if (!_tableComponent) {
 				EditorGUILayout.HelpBox($"Cannot find table. The gamelogic engine must be applied to a table object or one of its children.", MessageType.Error);
 				return;
 			}
@@ -69,7 +69,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 			EditorGUI.BeginDisabledGroup(!HasData);
 			if (GUILayout.Button("Populate Hardware")) {
 				if (EditorUtility.DisplayDialog("Mission Pinball Framework", "This will clear all linked switches, coils and lamps and re-populate them. You sure you want to do that?", "Yes", "No")) {
-					_tableAuthoring.RepopulateHardware(_mpfEngine);
+					_tableComponent.RepopulateHardware(_mpfEngine);
 					TableSelector.Instance.TableUpdated();
 					SceneView.RepaintAll();
 				}

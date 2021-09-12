@@ -71,22 +71,22 @@ namespace VisualPinball.Engine.Mpf.Unity
 				if (Regex.Match(coil.Name, "(l(eft)?_?flipper|flipper_?l(eft)?_?(main)?)$", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Left Flipper";
 					gleCoil.DeviceHint = "^(LeftFlipper|LFlipper|FlipperLeft|FlipperL)$";
-					gleCoil.DeviceItemHint = FlipperAuthoring.MainCoilItem;
+					gleCoil.DeviceItemHint = FlipperComponent.MainCoilItem;
 
 				} else if (Regex.Match(coil.Name, "(l(eft)?_?flipper|flipper_?l(eft)?)_?hold$", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Left Flipper (Hold)";
 					gleCoil.DeviceHint = "^(LeftFlipper|LFlipper|FlipperLeft|FlipperL)$";
-					gleCoil.DeviceItemHint = FlipperAuthoring.HoldCoilItem;
+					gleCoil.DeviceItemHint = FlipperComponent.HoldCoilItem;
 
 				} else if (Regex.Match(coil.Name, "(r(ight)?_?flipper|flipper_?r(ight)?_?(main)?)$", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Right Flipper";
 					gleCoil.DeviceHint = "^(RightFlipper|RFlipper|FlipperRight|FlipperR)$";
-					gleCoil.DeviceItemHint = FlipperAuthoring.HoldCoilItem;
+					gleCoil.DeviceItemHint = FlipperComponent.HoldCoilItem;
 
 				} else if (Regex.Match(coil.Name, "(r(ight)?_?flipper|flipper_?r(ight)?)_?hold$", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Right Flipper (Hold)";
 					gleCoil.DeviceHint = "^(RightFlipper|RFlipper|FlipperRight|FlipperR)$";
-					gleCoil.DeviceItemHint = FlipperAuthoring.MainCoilItem;
+					gleCoil.DeviceItemHint = FlipperComponent.MainCoilItem;
 
 				} else if (Regex.Match(coil.Name, "trough_?eject", RegexOptions.IgnoreCase).Success) {
 					gleCoil.Description = "Trough Eject";
