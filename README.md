@@ -24,12 +24,8 @@ but for now you'll need to open it through Unity.
 
 Both gRPC and Protobuf come with dependencies that conflict with Unity's, namely
 `System.Buffers`, `System.Memory` and `System.Runtime.CompilerServices`. To
-solve this, we pack all dependencies into a single DLL and ship it to Unity as
-a single binary. So, what Unity is getting is:
-
-- `VisualPinball.Engine.Mpf.dll`, which is `VisualPinball.Engine.Mpf` including
-  all its .NET dependencies
-- `grpc_csharp_ext.dll`, which is the native gRCP library used by the C# wrapper.
+solve this, we disable validation for `Google.Protobuf.dll` in the meta file
+located in the `VisualPinball.Engine.Mpf.Unity/Plugins` folder.
 
 ### Unity Package
 
@@ -63,12 +59,25 @@ actual binaries, `.meta` files of uncompiled platforms are cleaned up by Unity.
 In order to not accidentally commit those files, we recommend to ignore them:
 
 ```bash
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/Google.Protobuf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/Grpc.Core.Api.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/Grpc.Core.dll.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/libgrpc_csharp_ext.so.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/Google.Protobuf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/Grpc.Core.Api.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/Grpc.Core.dll.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/libgrpc_csharp_ext.dylib.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/Google.Protobuf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/Grpc.Core.Api.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/Grpc.Core.dll.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/grpc_csharp_ext.dll.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Google.Protobuf.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Grpc.Core.Api.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Grpc.Core.dll.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/grpc_csharp_ext.dll.meta
 ```
 
