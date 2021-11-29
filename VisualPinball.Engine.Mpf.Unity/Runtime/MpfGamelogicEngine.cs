@@ -32,6 +32,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 		public GamelogicEngineSwitch[] AvailableSwitches => availableSwitches;
 		public GamelogicEngineCoil[] AvailableCoils => availableCoils;
 		public GamelogicEngineLamp[] AvailableLamps => availableLamps;
+		public GamelogicEngineWire[] AvailableWires => availableWires;
 
 		public event EventHandler<LampEventArgs> OnLampChanged;
 		public event EventHandler<LampsEventArgs> OnLampsChanged;
@@ -48,6 +49,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 		[SerializeField] private GamelogicEngineSwitch[] availableSwitches = new GamelogicEngineSwitch[0];
 		[SerializeField] private GamelogicEngineCoil[] availableCoils = new GamelogicEngineCoil[0];
 		[SerializeField] private GamelogicEngineLamp[] availableLamps = new GamelogicEngineLamp[0];
+		[SerializeField] private GamelogicEngineWire[] availableWires = new GamelogicEngineWire[0];
 
 		private Player _player;
 		private Dictionary<string, int> _switchIds = new Dictionary<string, int>();
@@ -94,13 +96,13 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 			// map initial switches
 			var mappedSwitchStatuses = new Dictionary<string, bool>();
-			foreach (var swName in player.SwitchStatusesClosed.Keys) {
+			/*FIX: foreach (var swName in player.SwitchStatusesClosed.Keys) {
 				if (_switchIds.ContainsKey(swName)) {
 					mappedSwitchStatuses[_switchIds[swName].ToString()] = player.SwitchStatusesClosed[swName];
 				} else {
 					Logger.Warn($"Unknown intial switch name \"{swName}\".");
 				}
-			}
+			}*/
 			_api.StartGame(mappedSwitchStatuses);
 			Logger.Info("Game started.");
 		}
@@ -205,7 +207,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 				return;
 			}
 
-			_player.Queue(() => _player.AddDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));
+			/*FIX: _player.Queue(() => _player.AddDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));*/
 			Logger.Info($"<-- new hardware rule: {_switchNames[e.SwitchNumber]} -> {_coilNames[e.CoilNumber]}.");
 		}
 
@@ -220,7 +222,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 				return;
 			}
 
-			_player.Queue(() => _player.RemoveDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));
+			/*FIX: _player.Queue(() => _player.RemoveDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));*/
 			Logger.Info($"<-- remove hardware rule: {_switchNames[e.SwitchNumber]} -> {_coilNames[e.CoilNumber]}.");
 		}
 

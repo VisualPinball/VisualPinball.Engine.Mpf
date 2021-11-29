@@ -7,8 +7,8 @@
     "Unity",
     "Mission Pinball Framework"
   ],
-  "unity": "2020.3",
-  "unityRelease": "0f1",
+  "unity": "2021.2",
+  "unityRelease": "4f1",
   "dependencies": {},
   "author": "freezy <freezy@vpdb.io>",
   "contributors": [
