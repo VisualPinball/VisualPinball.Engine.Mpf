@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <LangVersion>9.0</LangVersion>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
@@ -30,30 +30,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="tools/**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <InputAssemblies Include="$(OutDir)System.Buffers.dll" />
-    <InputAssemblies Include="$(OutDir)System.Memory.dll" />
-    <InputAssemblies Include="$(OutDir)System.Numerics.Vectors.dll" />
-    <InputAssemblies Include="$(OutDir)System.Runtime.CompilerServices.Unsafe.dll" />
-    <InputAssemblies Include="$(OutDir)Google.Protobuf.dll" />
-    <InputAssemblies Include="$(OutDir)Grpc.Core.Api.dll" />
-    <InputAssemblies Include="$(OutDir)Grpc.Core.dll" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="machine\logs" />
   </ItemGroup>
 
-  <Target Name="ILRepack" AfterTargets="Build">
-    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) == 'true'" Command="tools\ILRepack.exe /target:library /internalize $(OutDir)$(AssemblyName).dll @(InputAssemblies, ' ') /out:$(OutDir)$(AssemblyName).dll" />
-    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) != 'true'" Command="mono tools/ILRepack.exe /target:library /internalize $(OutDir)$(AssemblyName).dll @(InputAssemblies, ' ') /out:$(OutDir)$(AssemblyName).dll" />
-  </Target>
-
-  <Target Name="PluginsDeploy" AfterTargets="ILRepack">
+  <Target Name="PluginsDeploy" AfterTargets="Build">
     <Copy SourceFiles="$(OutDir)$(AssemblyName).dll" DestinationFolder="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OutDir)Grpc.Core.Api.dll" DestinationFolder="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OutDir)Grpc.Core.dll" DestinationFolder="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OutDir)Google.Protobuf.dll" DestinationFolder="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)" SkipUnchangedFiles="true" /> 
     <Copy Condition="'$(RuntimeIdentifier)' == 'win-x64'" SourceFiles="$(OutDir)grpc_csharp_ext.x64.dll" DestinationFiles="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)\grpc_csharp_ext.dll" SkipUnchangedFiles="true" />
     <Copy Condition="'$(RuntimeIdentifier)' == 'win-x86'" SourceFiles="$(OutDir)grpc_csharp_ext.x86.dll" DestinationFiles="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)\grpc_csharp_ext.dll" SkipUnchangedFiles="true" />
     <Copy Condition="'$(RuntimeIdentifier)' == 'osx-x64'" SourceFiles="$(OutDir)libgrpc_csharp_ext.x64.dylib" DestinationFiles="..\VisualPinball.Engine.Mpf.Unity\Plugins\$(RuntimeIdentifier)\libgrpc_csharp_ext.dylib" SkipUnchangedFiles="true" />
