@@ -24,8 +24,8 @@ but for now you'll need to open it through Unity.
 
 Both gRPC and Protobuf come with dependencies that conflict with Unity's, namely
 `System.Buffers`, `System.Memory` and `System.Runtime.CompilerServices`. To
-solve this, we disable validation for `Google.Protobuf.dll` in the meta file
-located in the `VisualPinball.Engine.Mpf.Unity/Plugins` folder.
+solve this, we disable assembly validation for `Google.Protobuf.dll` and `Grpc.Core.dll`
+via the plugin inspector.
 
 ### Unity Package
 
