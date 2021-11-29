@@ -96,13 +96,13 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 			// map initial switches
 			var mappedSwitchStatuses = new Dictionary<string, bool>();
-			/*FIX: foreach (var swName in player.SwitchStatusesClosed.Keys) {
+			foreach (var swName in player.SwitchStatuses.Keys) {
 				if (_switchIds.ContainsKey(swName)) {
-					mappedSwitchStatuses[_switchIds[swName].ToString()] = player.SwitchStatusesClosed[swName];
+					mappedSwitchStatuses[_switchIds[swName].ToString()] = player.SwitchStatuses[swName].IsSwitchClosed;
 				} else {
 					Logger.Warn($"Unknown intial switch name \"{swName}\".");
 				}
-			}*/
+			}
 			_api.StartGame(mappedSwitchStatuses);
 			Logger.Info("Game started.");
 		}
@@ -207,7 +207,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 				return;
 			}
 
-			/*FIX: _player.Queue(() => _player.AddDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));*/
+			_player.Queue(() => _player.AddHardwareRule(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));
 			Logger.Info($"<-- new hardware rule: {_switchNames[e.SwitchNumber]} -> {_coilNames[e.CoilNumber]}.");
 		}
 
@@ -222,7 +222,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 				return;
 			}
 
-			/*FIX: _player.Queue(() => _player.RemoveDynamicWire(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));*/
+			_player.Queue(() => _player.RemoveHardwareRule(_switchNames[e.SwitchNumber], _coilNames[e.CoilNumber]));
 			Logger.Info($"<-- remove hardware rule: {_switchNames[e.SwitchNumber]} -> {_coilNames[e.CoilNumber]}.");
 		}
 
