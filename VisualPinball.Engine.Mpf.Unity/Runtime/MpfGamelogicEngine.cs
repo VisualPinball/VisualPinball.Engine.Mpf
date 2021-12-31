@@ -40,16 +40,17 @@ namespace VisualPinball.Engine.Mpf.Unity
 		public event EventHandler<CoilEventArgs> OnCoilChanged;
 		public event EventHandler<AvailableDisplays> OnDisplaysAvailable;
 		public event EventHandler<DisplayFrameData> OnDisplayFrame;
+		public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
 
 		[NonSerialized]
 		private MpfApi _api;
 
 		public string machineFolder;
 
-		[SerializeField] private GamelogicEngineSwitch[] availableSwitches = new GamelogicEngineSwitch[0];
-		[SerializeField] private GamelogicEngineCoil[] availableCoils = new GamelogicEngineCoil[0];
-		[SerializeField] private GamelogicEngineLamp[] availableLamps = new GamelogicEngineLamp[0];
-		[SerializeField] private GamelogicEngineWire[] availableWires = new GamelogicEngineWire[0];
+		[SerializeField] private GamelogicEngineSwitch[] availableSwitches = Array.Empty<GamelogicEngineSwitch>();
+		[SerializeField] private GamelogicEngineCoil[] availableCoils = Array.Empty<GamelogicEngineCoil>();
+		[SerializeField] private GamelogicEngineLamp[] availableLamps = Array.Empty<GamelogicEngineLamp>();
+		[SerializeField] private GamelogicEngineWire[] availableWires = Array.Empty<GamelogicEngineWire>();
 
 		private Player _player;
 		private Dictionary<string, int> _switchIds = new Dictionary<string, int>();
@@ -124,6 +125,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 			} else {
 				Logger.Error("Unmapped MPF switch " + id);
 			}
+
+			OnSwitchChanged?.Invoke(this, new SwitchEventArgs2(id, isClosed));
 		}
 
 		public void GetMachineDescription()
@@ -138,11 +141,26 @@ namespace VisualPinball.Engine.Mpf.Unity
 				Logger.Error($"Unable to get machine description. Check maching config. {e.Message}");
 			}
 
-			if (md != null) { 
+			if (md != null) {
 				availableSwitches = md.GetSwitches().ToArray();
 				availableCoils = md.GetCoils().ToArray();
 				availableLamps = md.GetLights().ToArray();
 			}
+		}
+
+		public void SetCoil(string id, bool isEnabled)
+		{
+			OnCoilChanged?.Invoke(this, new CoilEventArgs(id, isEnabled));
+		}
+
+		public void SetLamp(string id, int value, bool isCoil = false, LampSource source = LampSource.Lamp)
+		{
+			OnLampChanged?.Invoke(this, new LampEventArgs(id, value, isCoil, source));
+		}
+
+		public void SetLamp(string id, Color color)
+		{
+			OnLampColorChanged?.Invoke(this, new LampColorEventArgs(id, color));
 		}
 
 		private void OnEnableCoil(object sender, EnableCoilRequest e)
@@ -263,5 +281,6 @@ namespace VisualPinball.Engine.Mpf.Unity
 				_api.Dispose();
 			}
 		}
+
 	}
 }
