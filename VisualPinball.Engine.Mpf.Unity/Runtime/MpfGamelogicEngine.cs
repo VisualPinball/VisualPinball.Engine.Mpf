@@ -163,6 +163,21 @@ namespace VisualPinball.Engine.Mpf.Unity
 			OnLampColorChanged?.Invoke(this, new LampColorEventArgs(id, color));
 		}
 
+		public float GetLamp(string id)
+		{
+			return _player.LampStatuses.ContainsKey(id) ? _player.LampStatuses[id] : 0;
+		}
+
+		public bool GetSwitch(string id)
+		{
+			return _player.SwitchStatuses.ContainsKey(id) && _player.SwitchStatuses[id].IsSwitchEnabled;
+		}
+
+		public bool GetCoil(string id)
+		{
+			return _player.CoilStatuses.ContainsKey(id) && _player.CoilStatuses[id];
+		}
+
 		private void OnEnableCoil(object sender, EnableCoilRequest e)
 		{
 			if (_coilNames.ContainsKey(e.CoilNumber)) {
