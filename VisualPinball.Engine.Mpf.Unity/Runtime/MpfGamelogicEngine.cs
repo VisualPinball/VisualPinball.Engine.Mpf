@@ -29,16 +29,17 @@ namespace VisualPinball.Engine.Mpf.Unity
 	{
 		public string Name { get; } = "Mission Pinball Framework";
 
-		public GamelogicEngineSwitch[] AvailableSwitches => availableSwitches;
-		public GamelogicEngineCoil[] AvailableCoils => availableCoils;
-		public GamelogicEngineLamp[] AvailableLamps => availableLamps;
+		public GamelogicEngineSwitch[] RequestedSwitches => requiredSwitches;
+		public GamelogicEngineCoil[] RequestedCoils => requiredCoils;
+		public GamelogicEngineLamp[] RequestedLamps => requiredLamps;
 		public GamelogicEngineWire[] AvailableWires => availableWires;
+
 		public event EventHandler<EventArgs> OnStarted;
 		public event EventHandler<LampEventArgs> OnLampChanged;
 		public event EventHandler<LampsEventArgs> OnLampsChanged;
 		public event EventHandler<LampColorEventArgs> OnLampColorChanged;
 		public event EventHandler<CoilEventArgs> OnCoilChanged;
-		public event EventHandler<AvailableDisplays> OnDisplaysAvailable;
+		public event EventHandler<RequestedDisplays> OnDisplaysRequested;
 		public event EventHandler<DisplayFrameData> OnDisplayFrame;
 		public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
 
@@ -47,9 +48,9 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 		public string machineFolder;
 
-		[SerializeField] private GamelogicEngineSwitch[] availableSwitches = Array.Empty<GamelogicEngineSwitch>();
-		[SerializeField] private GamelogicEngineCoil[] availableCoils = Array.Empty<GamelogicEngineCoil>();
-		[SerializeField] private GamelogicEngineLamp[] availableLamps = Array.Empty<GamelogicEngineLamp>();
+		[SerializeField] private GamelogicEngineSwitch[] requiredSwitches = Array.Empty<GamelogicEngineSwitch>();
+		[SerializeField] private GamelogicEngineCoil[] requiredCoils = Array.Empty<GamelogicEngineCoil>();
+		[SerializeField] private GamelogicEngineLamp[] requiredLamps = Array.Empty<GamelogicEngineLamp>();
 		[SerializeField] private GamelogicEngineWire[] availableWires = Array.Empty<GamelogicEngineWire>();
 
 		private Player _player;
@@ -68,16 +69,16 @@ namespace VisualPinball.Engine.Mpf.Unity
 		{
 			_player = player;
 			_switchIds.Clear();
-			foreach (var sw in availableSwitches) {
+			foreach (var sw in requiredSwitches) {
 				_switchIds[sw.Id] = sw.InternalId;
 				_switchNames[sw.InternalId.ToString()] = sw.Id;
 			}
 			_coilNames.Clear();
-			foreach (var coil in availableCoils) {
+			foreach (var coil in requiredCoils) {
 				_coilNames[coil.InternalId.ToString()] = coil.Id;
 			}
 			_lampNames.Clear();
-			foreach (var lamp in availableLamps) {
+			foreach (var lamp in requiredLamps) {
 				_lampNames[lamp.InternalId.ToString()] = lamp.Id;
 			}
 			_api = new MpfApi(machineFolder);
@@ -144,9 +145,9 @@ namespace VisualPinball.Engine.Mpf.Unity
 			}
 
 			if (md != null) {
-				availableSwitches = md.GetSwitches().ToArray();
-				availableCoils = md.GetCoils().ToArray();
-				availableLamps = md.GetLights().ToArray();
+				requiredSwitches = md.GetSwitches().ToArray();
+				requiredCoils = md.GetCoils().ToArray();
+				requiredLamps = md.GetLights().ToArray();
 			}
 		}
 
@@ -271,8 +272,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 				foreach (var dmd in config.Dmds) {
 					Logger.Info($"[MPF] Announcing display \"{dmd.Name}\" @ {dmd.Width}x{dmd.Height}");
 					lock (_dispatchQueue) {
-						_dispatchQueue.Enqueue(() => OnDisplaysAvailable?.Invoke(this,
-							new AvailableDisplays(new DisplayConfig(dmd.Name, dmd.Width, dmd.Height, true))));
+						_dispatchQueue.Enqueue(() => OnDisplaysRequested?.Invoke(this,
+							new RequestedDisplays(new DisplayConfig(dmd.Name, dmd.Width, dmd.Height, true))));
 					}
 				}
 				Logger.Info("[MPF] Displays announced.");
