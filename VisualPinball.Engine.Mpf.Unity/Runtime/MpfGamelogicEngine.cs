@@ -37,7 +37,6 @@ namespace VisualPinball.Engine.Mpf.Unity
 		public event EventHandler<EventArgs> OnStarted;
 		public event EventHandler<LampEventArgs> OnLampChanged;
 		public event EventHandler<LampsEventArgs> OnLampsChanged;
-		public event EventHandler<LampColorEventArgs> OnLampColorChanged;
 		public event EventHandler<CoilEventArgs> OnCoilChanged;
 		public event EventHandler<RequestedDisplays> OnDisplaysRequested;
 		public event EventHandler<DisplayFrameData> OnDisplayFrame;
@@ -161,11 +160,6 @@ namespace VisualPinball.Engine.Mpf.Unity
 			OnLampChanged?.Invoke(this, new LampEventArgs(id, value, isCoil, source));
 		}
 
-		public void SetLamp(string id, Color color)
-		{
-			OnLampColorChanged?.Invoke(this, new LampColorEventArgs(id, color));
-		}
-
 		public LampState GetLamp(string id)
 		{
 			return _player.LampStatuses.ContainsKey(id) ? _player.LampStatuses[id] : LampState.Default;
@@ -222,7 +216,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 			var args = new List<LampEventArgs>();
 			foreach (var fade in e.Fades) {
 				if (_lampNames.ContainsKey(fade.LightNumber)) {
-					args.Add(new LampEventArgs(_lampNames[fade.LightNumber], (int)(fade.TargetBrightness * 255)));
+					args.Add(new LampEventArgs(_lampNames[fade.LightNumber], fade.TargetBrightness));
 				} else {
 					Logger.Error("Unmapped MPF lamp " + fade.LightNumber);
 				}
