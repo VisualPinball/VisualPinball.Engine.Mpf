@@ -39,7 +39,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 		public event EventHandler<LampsEventArgs> OnLampsChanged;
 		public event EventHandler<CoilEventArgs> OnCoilChanged;
 		public event EventHandler<RequestedDisplays> OnDisplaysRequested;
-		public event EventHandler<DisplayFrameData> OnDisplayFrame;
+		public event EventHandler<string> OnDisplayClear;
+		public event EventHandler<DisplayFrameData> OnDisplayUpdateFrame;
 		public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
 
 		[NonSerialized]
@@ -274,9 +275,13 @@ namespace VisualPinball.Engine.Mpf.Unity
 
 			lock (_dispatchQueue) {
 
-				_dispatchQueue.Enqueue(() => OnDisplayFrame?.Invoke(this,
+				_dispatchQueue.Enqueue(() => OnDisplayUpdateFrame?.Invoke(this,
 					new DisplayFrameData(frame.Name, DisplayFrameFormat.Dmd24, frame.FrameData())));
 			}
+		}
+
+		public void DisplayChanged(DisplayFrameData displayFrameData)
+		{
 		}
 
 		private void OnDestroy()
