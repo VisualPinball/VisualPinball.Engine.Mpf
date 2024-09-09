@@ -105,5 +105,41 @@ namespace VisualPinball.Engine.Mpf.Unity
 			// todo color
 			return md.Lights.Select(light => new SerializedGamelogicEngineLamp(light.Name));
 		}
-	}
+
+		public static Dictionary<string, string> GetSwitchNumbersByNameDict(this MachineDescription md)
+		{
+			Dictionary<string, string> ret = new();
+
+			foreach (SwitchDescription sw in md.Switches)
+			{
+				ret[sw.Name] = sw.HardwareNumber;
+			}
+
+			return ret;
+		}
+
+        public static Dictionary<string, string> GetCoilNumbersByNameDict(this MachineDescription md)
+        {
+            Dictionary<string, string> ret = new();
+
+            foreach (CoilDescription coil in md.Coils)
+            {
+                ret[coil.Name] = coil.HardwareNumber;
+            }
+
+            return ret;
+        }
+
+        public static Dictionary<string, string> GetLampNumbersByNameDict(this MachineDescription md)
+        {
+            Dictionary<string, string> ret = new();
+
+            foreach (LightDescription light in md.Lights)
+            {
+				ret[light.Name] = light.HardwareChannelColor;
+            }
+
+            return ret;
+        }
+    }
 }
