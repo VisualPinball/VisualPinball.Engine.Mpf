@@ -79,6 +79,10 @@ git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Grpc.Core.Api.dll.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Grpc.Core.dll.meta
 git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/grpc_csharp_ext.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\linux-x64\System.Runtime.CompilerServices.Unsafe.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\osx-x64\System.Runtime.CompilerServices.Unsafe.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\win-x64\System.Runtime.CompilerServices.Unsafe.dll.meta
+git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\win-x86\System.Runtime.CompilerServices.Unsafe.dll.meta
 ```
 
 ## License
