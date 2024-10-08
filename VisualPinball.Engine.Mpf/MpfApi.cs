@@ -31,7 +31,7 @@ namespace VisualPinball.Engine.Mpf
 		{
 			var client = new MpfClient();
 			var spawner = new MpfSpawner(machineFolder);
-			spawner.Spawn(new MpfConsoleOptions { ShowLogInsteadOfConsole = true });
+			spawner.Spawn(new MpfConsoleOptions { OutputType = OutputType.Log, VerboseLogging = true });
 			client.Connect("localhost:50051");
 			client.StartGame(new Dictionary<string, bool>(), false);
 			var description = client.GetMachineDescription();

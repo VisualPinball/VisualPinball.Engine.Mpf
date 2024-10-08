@@ -33,6 +33,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 	{
 		public string Name { get; } = "Mission Pinball Framework";
 
+		public MpfConsoleOptions ConsoleOptions;
+
 		public GamelogicEngineSwitch[] RequestedSwitches => requiredSwitches;
 		public GamelogicEngineCoil[] RequestedCoils => requiredCoils;
 		public GamelogicEngineLamp[] RequestedLamps => requiredLamps;
@@ -111,11 +113,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 				_lampNames[lamp.Id] = lamp.Id;
 			}
 			_api = new MpfApi(MachineFolder);
-			_api.Launch(new MpfConsoleOptions {
-				ShowLogInsteadOfConsole = false,
-				VerboseLogging = true,
-				UseMediaController = true,
-			});
+			_api.Launch(ConsoleOptions);
 
 			_api.Client.OnEnableCoil += OnEnableCoil;
 			_api.Client.OnDisableCoil += OnDisableCoil;

@@ -24,8 +24,9 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 	{
 		private MpfGamelogicEngine _mpfEngine;
 		private TableComponent _tableComponent;
+		private SerializedProperty _consoleOptionsProperty;
 
-		private bool _foldoutSwitches;
+        private bool _foldoutSwitches;
 		private bool _foldoutCoils;
 		private bool _foldoutLamps;
 
@@ -37,6 +38,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 			if (_mpfEngine != null) {
 				_tableComponent = _mpfEngine.gameObject.GetComponentInParent<TableComponent>();
 			}
+			_consoleOptionsProperty = serializedObject.FindProperty(nameof(MpfGamelogicEngine.ConsoleOptions));
 		}
 
 		public override void OnInspectorGUI()
@@ -49,6 +51,12 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             if (!string.IsNullOrEmpty(_mpfEngine.MachineFolder) && !_mpfEngine.MachineFolder.Contains("StreamingAssets")) {
                 EditorGUILayout.HelpBox("The machine folder is not in the 'StreamingAssets' folder. It will not be included in builds.", MessageType.Warning);
             }
+
+			EditorGUI.BeginChangeCheck();
+			EditorGUILayout.PropertyField(_consoleOptionsProperty, new GUIContent("Console Options"));
+			if (EditorGUI.EndChangeCheck()) {
+				serializedObject.ApplyModifiedProperties();
+			}
 
             var pos = EditorGUILayout.GetControlRect(true, 18f);
 			pos = EditorGUI.PrefixLabel(pos, new GUIContent("Machine Folder"));

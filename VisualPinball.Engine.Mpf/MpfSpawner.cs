@@ -53,18 +53,44 @@ namespace VisualPinball.Engine.Mpf
 		private void RunMpf(string mpfExePath, MpfConsoleOptions options)
 		{
 			var args = $"\"{_machineFolder}\"";
-			if (options.UseMediaController) {
-				args = "both " + args;
-			} else {
-				args += " -b";
+
+			switch (options.MediaController) {
+				case MediaController.None:
+					args += " -b";
+					break;
+				case MediaController.MpfMc:
+					args = "both " + args;
+					break;
+				case MediaController.Other:
+					// Default behavior of MPF
+					break;
 			}
 
-			if (options.ShowLogInsteadOfConsole) {
-				args += " -t";
+			switch (options.OutputType) {
+				case OutputType.TextUi:
+					// Default behavior of MPF
+					break;
+				case OutputType.Log:
+					args += " -t";
+					break;
 			}
+
 			if (options.VerboseLogging) {
 				args += " -v -V";
 			}
+
+			if (!options.cacheConfigFiles) {
+				args += " -A";
+			}
+
+			if (options.forceReloadConfig) {
+				args += " -a";
+			}
+
+			if (options.forceLoadAllAssetsOnStart) {
+				args += " -f";
+			}
+
 			var info = new ProcessStartInfo {
 				FileName = mpfExePath,
 				WorkingDirectory = _pwd,
@@ -117,16 +143,22 @@ namespace VisualPinball.Engine.Mpf
 		}
 	}
 
+	public enum MediaController { None, MpfMc, Other };
+	public enum OutputType { TextUi, Log };
+
 	/// <summary>
 	/// A few things we can configure when launching MPF
-	/// <seealso cref="https://docs.missionpinball.org/en/latest/running/commands/game.html">Documentation</seealso>
-	///
+	/// <see also cref="https://docs.missionpinball.org/en/latest/running/commands/game.html">Documentation</seealso>	
 	/// </summary>
+	[Serializable]
 	public class MpfConsoleOptions
 	{
-		public bool UseMediaController = true;
-		public bool ShowLogInsteadOfConsole;
-		public bool VerboseLogging = true;
-		public bool CatchStdOut;
+		public MediaController MediaController = MediaController.MpfMc;
+		public OutputType OutputType = OutputType.TextUi;
+		public bool VerboseLogging = false;
+		public bool CatchStdOut = false;
+		public bool cacheConfigFiles = true;
+		public bool forceReloadConfig = false;
+		public bool forceLoadAllAssetsOnStart = false;
 	}
 }
