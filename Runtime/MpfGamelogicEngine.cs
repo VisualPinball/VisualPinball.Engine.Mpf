@@ -17,7 +17,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Net.Http;
-using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Mpf.Vpe;
@@ -142,7 +141,11 @@ namespace VisualPinball.Engine.Mpf.Unity
             };
             _grpcChannel = GrpcChannel.ForAddress(_grpcAddress, options);
             _mpfCommunicationCts = new CancellationTokenSource();
-            await EstablishGrpcConnection(ct);
+            using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(
+                ct,
+                _mpfCommunicationCts.Token
+            );
+            await WaitUntilMpfReady(waitCts.Token);
             var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
             var s = CompileMachineState(player);
             _mpfCommandStreamCall = client.Start(s, cancellationToken: _mpfCommunicationCts.Token);
@@ -165,10 +168,10 @@ namespace VisualPinball.Engine.Mpf.Unity
         // Previously, the problem was 'solved' by simply waiting 1.5 seconds to give MPF
         // time to start up, but depending on the computer and whether or not prepackaged
         // (pyinstaller) binaries are used, this is not always enough.
-        private async Task EstablishGrpcConnection(CancellationToken ct)
+        private async Task WaitUntilMpfReady(CancellationToken ct)
         {
             Logger.Info("Attempting to connect to MPF...");
-            var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
+            var startTime = DateTime.Now;
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
                 _mpfCommunicationCts.Token
             );
@@ -177,14 +180,18 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             if (await Task.WhenAny(pingTask, timeoutTask) == pingTask)
             {
-                await pingTask;
+                var pingResponse = await pingTask;
                 timeoutCts.Cancel();
                 try
                 {
                     await timeoutTask;
                 }
                 catch (OperationCanceledException) { }
-                Logger.Info("Connected");
+                var timeToConnect = (DateTime.Now - startTime).TotalSeconds;
+                Logger.Info(
+                    $"Successfully connected to MPF in {timeToConnect:F2} seconds. "
+                        + $"MPF version: {pingResponse.MpfVersion}"
+                );
                 return;
             }
 
@@ -200,23 +207,23 @@ namespace VisualPinball.Engine.Mpf.Unity
             );
         }
 
-        private async Task PingUntilResponse()
+        private async Task<PingResponse> PingUntilResponse()
         {
             while (true)
             {
                 try
                 {
-                    Logger.Warn("Ping");
                     var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
-                    await client.PingAsync(
+                    var response = await client.PingAsync(
                         new EmptyRequest(),
                         deadline: DateTime.UtcNow.AddSeconds(1),
                         cancellationToken: _mpfCommunicationCts.Token
                     );
-                    return;
+                    return response;
                 }
                 catch (Exception ex) when (ex is IOException || ex is RpcException) { }
                 _mpfCommunicationCts.Token.ThrowIfCancellationRequested();
+                Logger.Info("No response from MPF. Retrying...");
             }
         }
 

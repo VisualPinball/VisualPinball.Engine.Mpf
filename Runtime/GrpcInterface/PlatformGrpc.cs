@@ -59,6 +59,8 @@ namespace Mpf.Vpe {
     static readonly grpc::Marshaller<global::Mpf.Vpe.EmptyResponse> __Marshaller_mpf_vpe_EmptyResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Mpf.Vpe.EmptyResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::Mpf.Vpe.QuitRequest> __Marshaller_mpf_vpe_QuitRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Mpf.Vpe.QuitRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::Mpf.Vpe.PingResponse> __Marshaller_mpf_vpe_PingResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Mpf.Vpe.PingResponse.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::Mpf.Vpe.MachineState, global::Mpf.Vpe.Commands> __Method_Start = new grpc::Method<global::Mpf.Vpe.MachineState, global::Mpf.Vpe.Commands>(
@@ -93,12 +95,12 @@ namespace Mpf.Vpe {
         __Marshaller_mpf_vpe_EmptyResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::Mpf.Vpe.EmptyRequest, global::Mpf.Vpe.EmptyResponse> __Method_Ping = new grpc::Method<global::Mpf.Vpe.EmptyRequest, global::Mpf.Vpe.EmptyResponse>(
+    static readonly grpc::Method<global::Mpf.Vpe.EmptyRequest, global::Mpf.Vpe.PingResponse> __Method_Ping = new grpc::Method<global::Mpf.Vpe.EmptyRequest, global::Mpf.Vpe.PingResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
         "Ping",
         __Marshaller_mpf_vpe_EmptyRequest,
-        __Marshaller_mpf_vpe_EmptyResponse);
+        __Marshaller_mpf_vpe_PingResponse);
 
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
@@ -135,7 +137,7 @@ namespace Mpf.Vpe {
       }
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::Mpf.Vpe.EmptyResponse> Ping(global::Mpf.Vpe.EmptyRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::Mpf.Vpe.PingResponse> Ping(global::Mpf.Vpe.EmptyRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -230,22 +232,22 @@ namespace Mpf.Vpe {
         return CallInvoker.AsyncUnaryCall(__Method_Quit, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Mpf.Vpe.EmptyResponse Ping(global::Mpf.Vpe.EmptyRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::Mpf.Vpe.PingResponse Ping(global::Mpf.Vpe.EmptyRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return Ping(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Mpf.Vpe.EmptyResponse Ping(global::Mpf.Vpe.EmptyRequest request, grpc::CallOptions options)
+      public virtual global::Mpf.Vpe.PingResponse Ping(global::Mpf.Vpe.EmptyRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_Ping, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Mpf.Vpe.EmptyResponse> PingAsync(global::Mpf.Vpe.EmptyRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::Mpf.Vpe.PingResponse> PingAsync(global::Mpf.Vpe.EmptyRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return PingAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Mpf.Vpe.EmptyResponse> PingAsync(global::Mpf.Vpe.EmptyRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::Mpf.Vpe.PingResponse> PingAsync(global::Mpf.Vpe.EmptyRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_Ping, null, options, request);
       }
@@ -281,7 +283,7 @@ namespace Mpf.Vpe {
       serviceBinder.AddMethod(__Method_GetMachineDescription, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::Mpf.Vpe.EmptyRequest, global::Mpf.Vpe.MachineDescription>(serviceImpl.GetMachineDescription));
       serviceBinder.AddMethod(__Method_SendSwitchChanges, serviceImpl == null ? null : new grpc::ClientStreamingServerMethod<global::Mpf.Vpe.SwitchChanges, global::Mpf.Vpe.EmptyResponse>(serviceImpl.SendSwitchChanges));
       serviceBinder.AddMethod(__Method_Quit, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::Mpf.Vpe.QuitRequest, global::Mpf.Vpe.EmptyResponse>(serviceImpl.Quit));
-      serviceBinder.AddMethod(__Method_Ping, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::Mpf.Vpe.EmptyRequest, global::Mpf.Vpe.EmptyResponse>(serviceImpl.Ping));
+      serviceBinder.AddMethod(__Method_Ping, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::Mpf.Vpe.EmptyRequest, global::Mpf.Vpe.PingResponse>(serviceImpl.Ping));
     }
 
   }

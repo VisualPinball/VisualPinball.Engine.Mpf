@@ -77,14 +77,15 @@ namespace Mpf.Vpe {
             "chgCIAEoCRIQCghwdWxzZV9tcxgDIAEoDRITCgtwdWxzZV9wb3dlchgEIAEo",
             "AhISCgpob2xkX3Bvd2VyGAUgASgCIkcKGVJlbW92ZUhhcmR3YXJlUnVsZVJl",
             "cXVlc3QSEwoLY29pbF9udW1iZXIYASABKAkSFQoNc3dpdGNoX251bWJlchgC",
-            "IAEoCTLKAgoSTXBmSGFyZHdhcmVTZXJ2aWNlEjMKBVN0YXJ0EhUubXBmLnZw",
-            "ZS5NYWNoaW5lU3RhdGUaES5tcGYudnBlLkNvbW1hbmRzMAESSwoVR2V0TWFj",
-            "aGluZURlc2NyaXB0aW9uEhUubXBmLnZwZS5FbXB0eVJlcXVlc3QaGy5tcGYu",
-            "dnBlLk1hY2hpbmVEZXNjcmlwdGlvbhJFChFTZW5kU3dpdGNoQ2hhbmdlcxIW",
-            "Lm1wZi52cGUuU3dpdGNoQ2hhbmdlcxoWLm1wZi52cGUuRW1wdHlSZXNwb25z",
-            "ZSgBEjQKBFF1aXQSFC5tcGYudnBlLlF1aXRSZXF1ZXN0GhYubXBmLnZwZS5F",
-            "bXB0eVJlc3BvbnNlEjUKBFBpbmcSFS5tcGYudnBlLkVtcHR5UmVxdWVzdBoW",
-            "Lm1wZi52cGUuRW1wdHlSZXNwb25zZWIGcHJvdG8z"));
+            "IAEoCSIjCgxQaW5nUmVzcG9uc2USEwoLbXBmX3ZlcnNpb24YASABKAkyyQIK",
+            "Ek1wZkhhcmR3YXJlU2VydmljZRIzCgVTdGFydBIVLm1wZi52cGUuTWFjaGlu",
+            "ZVN0YXRlGhEubXBmLnZwZS5Db21tYW5kczABEksKFUdldE1hY2hpbmVEZXNj",
+            "cmlwdGlvbhIVLm1wZi52cGUuRW1wdHlSZXF1ZXN0GhsubXBmLnZwZS5NYWNo",
+            "aW5lRGVzY3JpcHRpb24SRQoRU2VuZFN3aXRjaENoYW5nZXMSFi5tcGYudnBl",
+            "LlN3aXRjaENoYW5nZXMaFi5tcGYudnBlLkVtcHR5UmVzcG9uc2UoARI0CgRR",
+            "dWl0EhQubXBmLnZwZS5RdWl0UmVxdWVzdBoWLm1wZi52cGUuRW1wdHlSZXNw",
+            "b25zZRI0CgRQaW5nEhUubXBmLnZwZS5FbXB0eVJlcXVlc3QaFS5tcGYudnBl",
+            "LlBpbmdSZXNwb25zZWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -107,7 +108,8 @@ namespace Mpf.Vpe {
             new pbr::GeneratedClrTypeInfo(typeof(global::Mpf.Vpe.EnableCoilRequest), global::Mpf.Vpe.EnableCoilRequest.Parser, new[]{ "CoilNumber", "PulseMs", "PulsePower", "HoldPower" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Mpf.Vpe.DisableCoilRequest), global::Mpf.Vpe.DisableCoilRequest.Parser, new[]{ "CoilNumber" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Mpf.Vpe.ConfigureHardwareRuleRequest), global::Mpf.Vpe.ConfigureHardwareRuleRequest.Parser, new[]{ "CoilNumber", "SwitchNumber", "PulseMs", "PulsePower", "HoldPower" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Mpf.Vpe.RemoveHardwareRuleRequest), global::Mpf.Vpe.RemoveHardwareRuleRequest.Parser, new[]{ "CoilNumber", "SwitchNumber" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Mpf.Vpe.RemoveHardwareRuleRequest), global::Mpf.Vpe.RemoveHardwareRuleRequest.Parser, new[]{ "CoilNumber", "SwitchNumber" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Mpf.Vpe.PingResponse), global::Mpf.Vpe.PingResponse.Parser, new[]{ "MpfVersion" }, null, null, null, null)
           }));
     }
     #endregion
@@ -5960,6 +5962,204 @@ namespace Mpf.Vpe {
           }
           case 18: {
             SwitchNumber = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class PingResponse : pb::IMessage<PingResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<PingResponse> _parser = new pb::MessageParser<PingResponse>(() => new PingResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<PingResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Mpf.Vpe.PlatformReflection.Descriptor.MessageTypes[20]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PingResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PingResponse(PingResponse other) : this() {
+      mpfVersion_ = other.mpfVersion_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PingResponse Clone() {
+      return new PingResponse(this);
+    }
+
+    /// <summary>Field number for the "mpf_version" field.</summary>
+    public const int MpfVersionFieldNumber = 1;
+    private string mpfVersion_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string MpfVersion {
+      get { return mpfVersion_; }
+      set {
+        mpfVersion_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as PingResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(PingResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (MpfVersion != other.MpfVersion) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (MpfVersion.Length != 0) hash ^= MpfVersion.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (MpfVersion.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(MpfVersion);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (MpfVersion.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(MpfVersion);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (MpfVersion.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(MpfVersion);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(PingResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.MpfVersion.Length != 0) {
+        MpfVersion = other.MpfVersion;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            MpfVersion = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            MpfVersion = input.ReadString();
             break;
           }
         }
