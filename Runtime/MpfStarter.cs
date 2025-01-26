@@ -19,6 +19,29 @@ using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity
 {
+    // GodotOrLegacyMc: MPF versions pre v0.80 use a discontinued kivvy-based media
+    // controller, newer versions use Godot.
+    public enum MpfMediaController
+    {
+        None,
+        GodotOrLegacyMc,
+        Other,
+    };
+
+    public enum MpfOutputType
+    {
+        None,
+        TableInTerminal,
+        LogInTerminal,
+        LogInUnityConsole,
+    };
+
+    public enum MpfExecutableSource
+    {
+        Included,
+        ManuallyInstalled,
+    };
+
     [Serializable]
     // It would be stylistically better to make this a struct with a constructor that has default
     // parameters and private fields with the [UnityEngine.SerializeField] attribute, but this is
@@ -26,36 +49,13 @@ namespace VisualPinball.Engine.Mpf.Unity
     // adding a component with a field of this type to a game object.
     public class MpfStarter
     {
-        // GodotOrLegacyMc: MPF versions pre v0.80 use a discontinued kivvy-based media
-        // controller, newer versions use Godot.
-        public enum MediaController
-        {
-            None,
-            GodotOrLegacyMc,
-            Other,
-        };
-
-        public enum OutputType
-        {
-            None,
-            TableInTerminal,
-            LogInTerminal,
-            LogInUnityConsole,
-        };
-
-        public enum ExecutableSource
-        {
-            Included,
-            ManuallyInstalled,
-        };
-
-        public MediaController _mediaController = MediaController.None;
-        public OutputType _outputType = OutputType.TableInTerminal;
+        public MpfMediaController _mediaController = MpfMediaController.None;
+        public MpfOutputType _outputType = MpfOutputType.TableInTerminal;
         public bool _verboseLogging = false;
         public bool _cacheConfigFiles = true;
         public bool _forceReloadConfig = false;
         public bool _forceLoadAllAssetsOnStart = false;
-        public ExecutableSource _executableSource = ExecutableSource.Included;
+        public MpfExecutableSource _executableSource = MpfExecutableSource.Included;
         public string _machineFolder = "./StreamingAssets/MpfMachineFolder";
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -76,14 +76,24 @@ namespace VisualPinball.Engine.Mpf.Unity
             }
         }
 
+        private MpfOutputType OutputTypeOverride =>
+            UnityEngine.Debug.isDebugBuild ? _outputType : MpfOutputType.None;
+
         public Process StartMpf()
         {
             var process = new Process();
             process.StartInfo.FileName = GetExecutablePath();
             process.StartInfo.Arguments = GetCmdArgs(MachineFolder);
-            var redirectOutput = _outputType == OutputType.LogInUnityConsole;
-            process.StartInfo.UseShellExecute = !redirectOutput;
-            process.StartInfo.CreateNoWindow = _outputType == OutputType.None || redirectOutput;
+            // Make sure the MPF window does not pop up in release builds
+            var outputTypeOverride = UnityEngine.Debug.isDebugBuild
+                ? OutputTypeOverride
+                : MpfOutputType.None;
+            var openWindow =
+                outputTypeOverride == MpfOutputType.LogInTerminal
+                || outputTypeOverride == MpfOutputType.TableInTerminal;
+            process.StartInfo.UseShellExecute = openWindow;
+            process.StartInfo.CreateNoWindow = !openWindow;
+
             if (!process.StartInfo.CreateNoWindow)
             {
                 // On Linux and macOS, start the process through the terminal so it has a window.
@@ -102,36 +112,44 @@ namespace VisualPinball.Engine.Mpf.Unity
                 process.StartInfo.FileName = "open";
 #endif
             }
-            if (redirectOutput)
+
+            if (!openWindow)
             {
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.RedirectStandardOutput = true;
-                process.OutputDataReceived += new DataReceivedEventHandler(
-                    (sender, e) => Logger.Info($"MPF: {e.Data}")
-                );
 
-                process.ErrorDataReceived += new DataReceivedEventHandler(
-                    (sender, e) =>
-                    {
-                        // For some reason, all (?) output from MPF is routed to this error handler,
-                        // so filter manually. This is obviously flawed and will sometimes fail
-                        // to recognize errors.
-                        // https://github.com/missionpinball/mpf/issues/1866
-                        if (e.Data.Contains("ERROR") || e.Data.Contains("Exception"))
-                            Logger.Error($"MPF: {e.Data}");
-                        else if (e.Data.Contains("WARNING"))
-                            Logger.Warn($"MPF: {e.Data}");
-                        else
-                            Logger.Info($"MPF: {e.Data}");
-                    }
-                );
+                if (outputTypeOverride == MpfOutputType.LogInUnityConsole)
+                {
+                    process.OutputDataReceived += new DataReceivedEventHandler(
+                        (sender, e) => Logger.Info($"MPF: {e.Data}")
+                    );
+
+                    process.ErrorDataReceived += new DataReceivedEventHandler(
+                        (sender, e) =>
+                        {
+                            // For some reason, all (?) output from MPF is routed to this error handler,
+                            // so filter manually. This is obviously flawed and will sometimes fail
+                            // to recognize errors.
+                            // https://github.com/missionpinball/mpf/issues/1866
+                            if (e.Data.Contains("ERROR") || e.Data.Contains("Exception"))
+                                Logger.Error($"MPF: {e.Data}");
+                            else if (e.Data.Contains("WARNING"))
+                                Logger.Warn($"MPF: {e.Data}");
+                            else
+                                Logger.Info($"MPF: {e.Data}");
+                        }
+                    );
+                }
             }
+
             process.Start();
-            if (redirectOutput)
+
+            if (outputTypeOverride == MpfOutputType.LogInUnityConsole)
             {
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
             }
+
             return process;
         }
 
@@ -139,7 +157,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         {
             switch (_executableSource)
             {
-                case ExecutableSource.Included:
+                case MpfExecutableSource.Included:
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
                     var dir = Constants.MpfBinaryDirWindows;
                     var name = Constants.MpfBinaryNameWindows;
@@ -160,7 +178,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 #endif
                     return Path.Combine(root, Constants.MpfBinariesDirName, dir, name);
 
-                case ExecutableSource.ManuallyInstalled:
+                case MpfExecutableSource.ManuallyInstalled:
                     return "mpf";
                 default:
                     throw new NotImplementedException(
@@ -175,18 +193,18 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             switch (_mediaController)
             {
-                case MediaController.None:
+                case MpfMediaController.None:
                     sb.Append(" -b");
                     break;
-                case MediaController.GodotOrLegacyMc:
+                case MpfMediaController.GodotOrLegacyMc:
                     sb.Insert(0, "both ");
                     break;
-                case MediaController.Other:
+                case MpfMediaController.Other:
                     // Default behavior of MPF
                     break;
             }
 
-            if (_outputType != OutputType.TableInTerminal)
+            if (OutputTypeOverride != MpfOutputType.TableInTerminal)
                 sb.Append(" -t");
 
             if (_verboseLogging)

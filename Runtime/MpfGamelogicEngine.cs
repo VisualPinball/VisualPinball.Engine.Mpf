@@ -111,8 +111,8 @@ namespace VisualPinball.Engine.Mpf.Unity
             ct.ThrowIfCancellationRequested();
             var starter = new MpfStarter()
             {
-                _mediaController = MpfStarter.MediaController.None,
-                _outputType = MpfStarter.OutputType.LogInUnityConsole,
+                _mediaController = MpfMediaController.None,
+                _outputType = MpfOutputType.LogInUnityConsole,
                 _machineFolder = _mpfStarter.MachineFolder,
             };
             using var mpfProcess = starter.StartMpf();
