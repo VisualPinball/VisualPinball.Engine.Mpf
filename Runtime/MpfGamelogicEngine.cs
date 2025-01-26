@@ -28,6 +28,14 @@ using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity
 {
+    public enum MpfState
+    {
+        NotRunning,
+        Starting,
+        Running,
+        Stopping,
+    }
+
     public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine
     {
         [SerializeField]
@@ -92,6 +100,8 @@ namespace VisualPinball.Engine.Mpf.Unity
         public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
 #pragma warning restore CS0067
 
+        public MpfState MpfState { get; private set; }
+
 #if UNITY_EDITOR
         public void QueryParseAndStoreMpfMachineDescription()
         {
@@ -131,6 +141,8 @@ namespace VisualPinball.Engine.Mpf.Unity
             CancellationToken ct
         )
         {
+            ct.ThrowIfCancellationRequested();
+            MpfState = MpfState.Starting;
             _player = player;
             _mpfProcess = _mpfStarter.StartMpf();
             var handler = new YetAnotherHttpHandler() { Http2Only = true };
@@ -145,7 +157,24 @@ namespace VisualPinball.Engine.Mpf.Unity
                 ct,
                 _mpfCommunicationCts.Token
             );
-            await WaitUntilMpfReady(waitCts.Token);
+
+            try
+            {
+                await WaitUntilMpfReady(waitCts.Token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                _mpfCommunicationCts?.Dispose();
+                _mpfCommunicationCts = null;
+                _grpcChannel?.Dispose();
+                _grpcChannel = null;
+                _mpfProcess?.Kill();
+                _mpfProcess?.Dispose();
+                _mpfProcess = null;
+                throw ex;
+            }
+
+            MpfState = MpfState.Running;
             var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
             var s = CompileMachineState(player);
             _mpfCommandStreamCall = client.Start(s, cancellationToken: _mpfCommunicationCts.Token);
@@ -170,13 +199,18 @@ namespace VisualPinball.Engine.Mpf.Unity
         // (pyinstaller) binaries are used, this is not always enough.
         private async Task WaitUntilMpfReady(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
             Logger.Info("Attempting to connect to MPF...");
             var startTime = DateTime.Now;
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
                 _mpfCommunicationCts.Token
             );
             var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_connectTimeout), timeoutCts.Token);
-            var pingTask = PingUntilResponse();
+            using var pingTaskCts = CancellationTokenSource.CreateLinkedTokenSource(
+                ct,
+                _mpfCommunicationCts.Token
+            );
+            var pingTask = PingUntilResponse(pingTaskCts.Token);
 
             if (await Task.WhenAny(pingTask, timeoutTask) == pingTask)
             {
@@ -196,7 +230,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             }
 
             await timeoutTask;
-            _mpfCommunicationCts.Cancel();
+            pingTaskCts.Cancel();
             try
             {
                 await pingTask;
@@ -207,8 +241,9 @@ namespace VisualPinball.Engine.Mpf.Unity
             );
         }
 
-        private async Task<PingResponse> PingUntilResponse()
+        private async Task<PingResponse> PingUntilResponse(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
             while (true)
             {
                 try
@@ -217,12 +252,12 @@ namespace VisualPinball.Engine.Mpf.Unity
                     var response = await client.PingAsync(
                         new EmptyRequest(),
                         deadline: DateTime.UtcNow.AddSeconds(1),
-                        cancellationToken: _mpfCommunicationCts.Token
+                        cancellationToken: ct
                     );
                     return response;
                 }
                 catch (Exception ex) when (ex is IOException || ex is RpcException) { }
-                _mpfCommunicationCts.Token.ThrowIfCancellationRequested();
+                ct.ThrowIfCancellationRequested();
                 Logger.Info("No response from MPF. Retrying...");
             }
         }
@@ -243,21 +278,60 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private async void OnDestroy()
         {
+            if (MpfState == MpfState.Running)
+            {
+                MpfState = MpfState.Stopping;
+                var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
+                try
+                {
+                    await client.QuitAsync(
+                        new QuitRequest(),
+                        deadline: DateTime.UtcNow.AddSeconds(1)
+                    );
+                }
+                catch (RpcException ex)
+                {
+                    Logger.Error($"Failed to send quit message to MPF: {ex}");
+                }
+            }
+
             _mpfCommunicationCts?.Cancel();
-            await _receiveMpfCommandsTask;
+            if (_receiveMpfCommandsTask != null)
+                await _receiveMpfCommandsTask;
+
+            if (_mpfProcess != null && !_mpfProcess.HasExited)
+            {
+                if (MpfState == MpfState.Stopping)
+                {
+                    // MPF should shut down on its own after receiving the Quit message.
+                    // If it is still running after one second, just kill it.
+                    var processExited = new TaskCompletionSource<bool>();
+                    _mpfProcess.Exited += new EventHandler(
+                        (sender, args) => processExited.TrySetResult(true)
+                    );
+
+                    if (
+                        await Task.WhenAny(processExited.Task, Task.Delay(TimeSpan.FromSeconds(1)))
+                            != processExited.Task
+                        && !_mpfProcess.HasExited
+                    )
+                        _mpfProcess?.Kill();
+                }
+                else
+                    _mpfProcess?.Kill();
+            }
+
+            MpfState = MpfState.NotRunning;
+
+            _receiveMpfCommandsTask = null;
             _mpfCommunicationCts?.Dispose();
             _mpfCommunicationCts = null;
-            _receiveMpfCommandsTask = null;
-            var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
-            await client.QuitAsync(new QuitRequest(), deadline: DateTime.UtcNow.AddSeconds(3));
             _mpfCommandStreamCall?.Dispose();
             _mpfCommandStreamCall = null;
             _mpfSwitchStreamCall?.Dispose();
             _mpfSwitchStreamCall = null;
             _grpcChannel?.Dispose();
             _grpcChannel = null;
-            if (_mpfProcess != null && !_mpfProcess.HasExited)
-                _mpfProcess?.Kill();
             _mpfProcess?.Dispose();
             _mpfProcess = null;
         }
@@ -277,7 +351,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             catch (RpcException ex)
             {
                 if (!_mpfCommunicationCts.IsCancellationRequested)
-                    Logger.Error($"Unable to receive commands from MPF. RPC Status: {ex.Status}");
+                    Logger.Error($"Unable to receive commands from MPF: {ex}");
             }
         }
 
@@ -433,12 +507,25 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             if (_mpfSwitchNumbers.ContainsName(id))
             {
-                var number = _mpfSwitchNumbers.GetNumberByName(id);
-                var change = new SwitchChanges { SwitchNumber = number, SwitchState = isClosed };
-                await _mpfSwitchStreamCall.RequestStream.WriteAsync(
-                    change,
-                    _mpfCommunicationCts.Token
-                );
+                if (MpfState == MpfState.Running)
+                {
+                    var number = _mpfSwitchNumbers.GetNumberByName(id);
+                    var change = new SwitchChanges
+                    {
+                        SwitchNumber = number,
+                        SwitchState = isClosed,
+                    };
+                    await _mpfSwitchStreamCall.RequestStream.WriteAsync(
+                        change,
+                        _mpfCommunicationCts.Token
+                    );
+                }
+                else
+                {
+                    Logger.Warn(
+                        $"Switch change '{id}' will not be sent to MPF because MPF is not ready"
+                    );
+                }
             }
             else
             {
