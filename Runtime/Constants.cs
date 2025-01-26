@@ -18,10 +18,13 @@ namespace VisualPinball.Engine.Mpf.Unity
     public static class Constants
     {
         public const string PackageName = "org.visualpinball.engine.missionpinball";
-        public const string MpfBinaryNameWindows = "mpf-win.exe";
-        public const string MpfBinaryNameMacOS = "mpf-macos";
-        public const string MpfBinaryNameLinux = "mpf-linux";
         public const string MpfBinariesDirName = "MpfBinaries";
+        public const string MpfBinaryDirWindows = "Windows";
+        public const string MpfBinaryNameWindows = "mpf.exe";
+        public const string MpfBinaryDirMacOS = "MacOS";
+        public const string MpfBinaryNameMacOS = "mpf";
+        public const string MpfBinaryDirLinux = "Linux";
+        public const string MpfBinaryNameLinux = "mpf";
 
 #if UNITY_EDITOR
         public static PackageInfo GetPackageInfo()

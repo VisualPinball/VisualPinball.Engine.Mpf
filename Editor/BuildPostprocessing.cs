@@ -11,9 +11,12 @@
 
 using System;
 using System.IO;
+using System.Linq;
+using NLog;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.Editor
 {
@@ -21,37 +24,56 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
     {
         int IOrderedCallback.callbackOrder => 0;
 
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         void IPostprocessBuildWithReport.OnPostprocessBuild(BuildReport report)
         {
-            if (report.summary.result != BuildResult.Succeeded)
+            if (
+                report.summary.result == BuildResult.Failed
+                || report.summary.result == BuildResult.Cancelled
+            )
                 return;
+
+            Logger.Info("Adding MPF binaries to build...");
 
             // Get the directory of the MPF package from the Unity package manager
             var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(
                 typeof(BuildPostprocessing).Assembly
             );
-            var binaryDirectory = Path.Combine(packageInfo.resolvedPath, "Bin");
             var platform = report.summary.platform;
-            var binaryFileName = platform switch
+            var binaryDirName = platform switch
             {
-                BuildTarget.StandaloneLinux64 => Constants.MpfBinaryNameLinux,
-                BuildTarget.StandaloneOSX => Constants.MpfBinaryNameMacOS,
-                BuildTarget.StandaloneWindows => Constants.MpfBinaryNameWindows,
-                BuildTarget.StandaloneWindows64 => Constants.MpfBinaryNameWindows,
+                BuildTarget.StandaloneLinux64 => Constants.MpfBinaryDirLinux,
+                BuildTarget.StandaloneOSX => Constants.MpfBinaryDirMacOS,
+                BuildTarget.StandaloneWindows => Constants.MpfBinaryDirWindows,
+                BuildTarget.StandaloneWindows64 => Constants.MpfBinaryDirWindows,
                 _ => throw new PlatformNotSupportedException(
                     "Visual Pinball Engine does not ship with an MPF executable for the build "
                         + $"platform '{platform}.' The build will not work unless MPF is installed "
                         + $"on the end-user's device"
                 ),
             };
-            var sourcePath = Path.Combine(binaryDirectory, binaryFileName);
+            var sourcePath = Path.Combine(
+                packageInfo.resolvedPath,
+                Constants.MpfBinariesDirName,
+                binaryDirName
+            );
+
+            var dataDir = Directory
+                .GetDirectories(Directory.GetParent(report.summary.outputPath).ToString(), "*_Data")
+                .FirstOrDefault();
+
             var destPath = Path.Combine(
-                report.summary.outputPath,
+                dataDir,
                 "StreamingAssets",
                 Constants.MpfBinariesDirName,
-                binaryFileName
+                binaryDirName
             );
-            File.Copy(sourcePath, destPath);
+
+            Directory.CreateDirectory(destPath);
+            CopyUtil.CopyDirectory(sourcePath, destPath, recursive: true);
+
+            Logger.Info("Successfully added MPF binaries to build.");
         }
     }
 }

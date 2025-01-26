@@ -39,34 +39,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             // Copy sample machine folder to streaming assets
             var sourcePath = Path.Combine(path, "SampleMachineFolder");
             var destPath = Path.Combine(Application.streamingAssetsPath, "MpfMachineFolder");
-            CopyDirectory(sourcePath, destPath, recursive: true);
-        }
-
-        // Source: https://learn.microsoft.com/en-us/dotnet/standard/io/how-to-copy-directories
-        private static void CopyDirectory(string sourceDir, string destinationDir, bool recursive)
-        {
-            var dir = new DirectoryInfo(sourceDir);
-
-            if (!dir.Exists)
-                throw new DirectoryNotFoundException($"Source directory not found: {dir.FullName}");
-
-            DirectoryInfo[] dirs = dir.GetDirectories();
-            Directory.CreateDirectory(destinationDir);
-
-            foreach (FileInfo file in dir.GetFiles())
-            {
-                string targetFilePath = Path.Combine(destinationDir, file.Name);
-                file.CopyTo(targetFilePath, overwrite: false);
-            }
-
-            if (recursive)
-            {
-                foreach (DirectoryInfo subDir in dirs)
-                {
-                    string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
-                    CopyDirectory(subDir.FullName, newDestinationDir, true);
-                }
-            }
+            CopyUtil.CopyDirectory(sourcePath, destPath, recursive: true);
         }
     }
 }

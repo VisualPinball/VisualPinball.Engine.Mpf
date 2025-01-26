@@ -78,28 +78,30 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         public Process StartMpf()
         {
-            var fileName = GetExecutablePath();
-            var args = GetCmdArgs(MachineFolder);
-#if UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-            args = $"-e {fileName} {args}";
-            fileName = "x-terminal-emulator";
-#elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-            // There is no way to pass arguments trough the macOS terminal,
-            // so create a temporary shell script that contains the arguments.
-            // So the logic goes: This process -> terminal -> shell script -> MPF
-            // Very convoluted but there is no other way as far as I know.
-            string tmpScriptPath = Path.Combine(Application.temporaryCachePath, "mpf.sh");
-            File.WriteAllText(tmpScriptPath, $"#!/bin/bash\n{fileName} {args}");
-            Process.Start("chmod", $"u+x {tmpScriptPath}");
-            args = $"-a Terminal {tmpScriptPath}";
-            fileName = "open";
-#endif
             var process = new Process();
-            process.StartInfo.FileName = fileName;
-            process.StartInfo.Arguments = args;
+            process.StartInfo.FileName = GetExecutablePath();
+            process.StartInfo.Arguments = GetCmdArgs(MachineFolder);
             var redirectOutput = _outputType == OutputType.LogInUnityConsole;
             process.StartInfo.UseShellExecute = !redirectOutput;
             process.StartInfo.CreateNoWindow = _outputType == OutputType.None || redirectOutput;
+            if (!process.StartInfo.CreateNoWindow)
+            {
+                // On Linux and macOS, start the process through the terminal so it has a window.
+#if UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+                process.StartInfo.Aguments = $"-e {process.StartInfo.FileName} {args}";
+                process.StartInfo.FileName = "x-terminal-emulator";
+#elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+                // There is no way to pass arguments trough the macOS terminal,
+                // so create a temporary shell script that contains the arguments.
+                // So the logic goes: This process -> terminal -> shell script -> MPF
+                // Very convoluted but there is no other way as far as I know.
+                string tmpScriptPath = Path.Combine(Application.temporaryCachePath, "mpf.sh");
+                File.WriteAllText(tmpScriptPath, $"#!/bin/bash\n{process.StartInfo.FileName} {process.StartInfo.Arguments}");
+                Process.Start("chmod", $"u+x {tmpScriptPath}");
+                process.StartInfo.Arguments = $"-a Terminal {tmpScriptPath}";
+                process.StartInfo.FileName = "open";
+#endif
+            }
             if (redirectOutput)
             {
                 process.StartInfo.RedirectStandardError = true;
@@ -114,6 +116,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                         // For some reason, all (?) output from MPF is routed to this error handler,
                         // so filter manually. This is obviously flawed and will sometimes fail
                         // to recognize errors.
+                        // https://github.com/missionpinball/mpf/issues/1866
                         if (e.Data.Contains("ERROR") || e.Data.Contains("Exception"))
                             Logger.Error($"MPF: {e.Data}");
                         else if (e.Data.Contains("WARNING"))
@@ -138,10 +141,13 @@ namespace VisualPinball.Engine.Mpf.Unity
             {
                 case ExecutableSource.Included:
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+                    var dir = Constants.MpfBinaryDirWindows;
                     var name = Constants.MpfBinaryNameWindows;
 #elif UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+                    var dir Constants.MpfBinaryDirLinux;
                     var name = Constants.MpfBinaryNameLinux
 #elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+                    var dir = Constants.MpfBinaryDirMacOS;
                     var name = Constants.MpfBinaryNameMacOS
 #else
                     goto case ExecutableSource.ManuallyInstalled;
@@ -152,7 +158,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 #else
                     var root = Application.streamingAssetsPath;
 #endif
-                    return Path.Combine(root, Constants.MpfBinariesDirName, name);
+                    return Path.Combine(root, Constants.MpfBinariesDirName, dir, name);
 
                 case ExecutableSource.ManuallyInstalled:
                     return "mpf";
