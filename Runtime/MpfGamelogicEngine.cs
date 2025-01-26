@@ -103,26 +103,49 @@ namespace VisualPinball.Engine.Mpf.Unity
         public MpfState MpfState { get; private set; }
 
 #if UNITY_EDITOR
-        public void QueryParseAndStoreMpfMachineDescription()
+        public async Task QueryParseAndStoreMpfMachineDescription(CancellationToken ct)
         {
-            // TODO: Ditch IMGUI for UiToolkit, then do this whole thing asynchronously
-            var args = new MpfStarter()
+            if (Application.isPlaying)
+                throw new Exception("The method should only be called in edit mode.");
+
+            ct.ThrowIfCancellationRequested();
+            var starter = new MpfStarter()
             {
                 _mediaController = MpfStarter.MediaController.None,
-                _outputType = MpfStarter.OutputType.LogInTerminal,
+                _outputType = MpfStarter.OutputType.LogInUnityConsole,
+                _machineFolder = _mpfStarter.MachineFolder,
             };
-            using var mpfProcess = args.StartMpf();
-            Thread.Sleep(15000);
+            using var mpfProcess = starter.StartMpf();
             using var handler = new YetAnotherHttpHandler() { Http2Only = true };
             var options = new GrpcChannelOptions() { HttpHandler = handler };
             using var grpcChannel = GrpcChannel.ForAddress(_grpcAddress, options);
-            var client = new MpfHardwareService.MpfHardwareServiceClient(grpcChannel);
-            client.Start(new MachineState());
-            var machineDescription = client.GetMachineDescription(
-                new EmptyRequest(),
-                deadline: DateTime.UtcNow.AddSeconds(3)
-            );
-            client.Quit(new QuitRequest(), deadline: DateTime.UtcNow.AddSeconds(3));
+
+            MachineDescription machineDescription = null;
+
+            try
+            {
+                await WaitUntilMpfReady(grpcChannel, ct);
+
+                var client = new MpfHardwareService.MpfHardwareServiceClient(grpcChannel);
+                client.Start(new MachineState(), cancellationToken: ct);
+                machineDescription = await client.GetMachineDescriptionAsync(
+                    new EmptyRequest(),
+                    deadline: DateTime.UtcNow.AddSeconds(1),
+                    cancellationToken: ct
+                );
+                await client.QuitAsync(
+                    new QuitRequest(),
+                    deadline: DateTime.UtcNow.AddSeconds(1),
+                    cancellationToken: ct
+                );
+            }
+            catch (Exception ex)
+            {
+                mpfProcess.Kill();
+                throw ex;
+            }
+
+            ct.ThrowIfCancellationRequested();
 
             _requestedSwitches = machineDescription.GetSwitches().ToArray();
             _requestedCoils = machineDescription.GetCoils().ToArray();
@@ -160,7 +183,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             try
             {
-                await WaitUntilMpfReady(waitCts.Token);
+                await WaitUntilMpfReady(_grpcChannel, waitCts.Token);
             }
             catch (OperationCanceledException ex)
             {
@@ -197,25 +220,19 @@ namespace VisualPinball.Engine.Mpf.Unity
         // Previously, the problem was 'solved' by simply waiting 1.5 seconds to give MPF
         // time to start up, but depending on the computer and whether or not prepackaged
         // (pyinstaller) binaries are used, this is not always enough.
-        private async Task WaitUntilMpfReady(CancellationToken ct)
+        private async Task WaitUntilMpfReady(GrpcChannel channel, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             Logger.Info("Attempting to connect to MPF...");
             var startTime = DateTime.Now;
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
-                _mpfCommunicationCts.Token
-            );
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_connectTimeout), timeoutCts.Token);
-            using var pingTaskCts = CancellationTokenSource.CreateLinkedTokenSource(
-                ct,
-                _mpfCommunicationCts.Token
-            );
-            var pingTask = PingUntilResponse(pingTaskCts.Token);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_connectTimeout), cts.Token);
+            var pingTask = PingUntilResponse(channel, cts.Token);
 
             if (await Task.WhenAny(pingTask, timeoutTask) == pingTask)
             {
                 var pingResponse = await pingTask;
-                timeoutCts.Cancel();
+                cts.Cancel();
                 try
                 {
                     await timeoutTask;
@@ -230,7 +247,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             }
 
             await timeoutTask;
-            pingTaskCts.Cancel();
+            cts.Cancel();
             try
             {
                 await pingTask;
@@ -241,14 +258,17 @@ namespace VisualPinball.Engine.Mpf.Unity
             );
         }
 
-        private async Task<PingResponse> PingUntilResponse(CancellationToken ct)
+        private async Task<PingResponse> PingUntilResponse(
+            GrpcChannel channel,
+            CancellationToken ct
+        )
         {
             ct.ThrowIfCancellationRequested();
             while (true)
             {
                 try
                 {
-                    var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
+                    var client = new MpfHardwareService.MpfHardwareServiceClient(channel);
                     var response = await client.PingAsync(
                         new EmptyRequest(),
                         deadline: DateTime.UtcNow.AddSeconds(1),

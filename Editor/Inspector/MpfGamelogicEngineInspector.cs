@@ -11,9 +11,13 @@
 
 // ReSharper disable AssignmentInConditionalExpression
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using Grpc.Core;
+using NLog.Filters;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -27,6 +31,8 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
     {
         [SerializeField]
         private VisualTreeAsset _inspectorXml;
+
+        private CancellationTokenSource _getMachineDescCts;
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -64,14 +70,51 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             );
 
             var getDescBtn = root.Q<Button>("get-machine-description");
-            getDescBtn.clicked += () =>
+            if (Application.isPlaying)
+                getDescBtn.SetEnabled(false);
+
+            var getDescBtnDefaultText = getDescBtn.text;
+
+            getDescBtn.clicked += async () =>
             {
                 Undo.RecordObject(mpfEngine, "Get machine description");
                 PrefabUtility.RecordPrefabInstancePropertyModifications(mpfEngine);
-                mpfEngine.QueryParseAndStoreMpfMachineDescription();
+                if (_getMachineDescCts == null)
+                {
+                    _getMachineDescCts = new CancellationTokenSource();
+                    getDescBtn.text = "Cancel";
+
+                    try
+                    {
+                        await mpfEngine.QueryParseAndStoreMpfMachineDescription(
+                            _getMachineDescCts.Token
+                        );
+                    }
+                    catch (Exception ex)
+                        when (ex is OperationCanceledException
+                            || (
+                                ex is RpcException exception
+                                && exception.StatusCode == StatusCode.Cancelled
+                            )
+                        ) { }
+
+                    getDescBtn.text = getDescBtnDefaultText;
+                    _getMachineDescCts?.Dispose();
+                    _getMachineDescCts = null;
+                }
+                else
+                {
+                    _getMachineDescCts?.Cancel();
+                    _getMachineDescCts?.Dispose();
+                    _getMachineDescCts = null;
+                    getDescBtn.text = getDescBtnDefaultText;
+                }
             };
 
             var repopulateHardwareBtn = root.Q<Button>("populate-hardware");
+            if (Application.isPlaying)
+                repopulateHardwareBtn.SetEnabled(false);
+
             repopulateHardwareBtn.clicked += () =>
             {
                 if (
@@ -126,6 +169,13 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             );
 
             return root;
+        }
+
+        private void OnDisable()
+        {
+            _getMachineDescCts?.Cancel();
+            _getMachineDescCts?.Dispose();
+            _getMachineDescCts = null;
         }
 
         private void UpdateSwitchList(MpfGamelogicEngine mpfEngine, VisualElement parent)
