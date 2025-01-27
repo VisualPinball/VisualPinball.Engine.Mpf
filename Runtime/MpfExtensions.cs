@@ -14,6 +14,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Mpf.Vpe;
 using VisualPinball.Engine.Common;
+using VisualPinball.Engine.Game.Engines;
 using VisualPinball.Unity;
 
 namespace VisualPinball.Engine.Mpf.Unity
@@ -227,6 +228,29 @@ namespace VisualPinball.Engine.Mpf.Unity
         public static IEnumerable<DisplayConfig> GetDmds(this MachineDescription md)
         {
             return md.Dmds.Select(dmd => new DisplayConfig(dmd.Name, dmd.Width, dmd.Height));
+        }
+
+        public static bool Equals(this GamelogicEngineSwitch gleSwitch, SwitchDescription mpfSwitch)
+        {
+            return gleSwitch.Id == mpfSwitch.Name
+                && gleSwitch.NormallyClosed == (mpfSwitch.SwitchType.ToLower() == "nc");
+        }
+
+        public static bool Equals(this GamelogicEngineCoil gleCoil, CoilDescription mpfCoil)
+        {
+            return gleCoil.Id == mpfCoil.Name;
+        }
+
+        public static bool Equals(this GamelogicEngineLamp gleLamp, LightDescription mpfLight)
+        {
+            return gleLamp.Id == mpfLight.Name;
+        }
+
+        public static bool Equals(this DisplayConfig cfg, DmdDescription dmdDesc)
+        {
+            return cfg.Id == dmdDesc.Name
+                && cfg.Width == dmdDesc.Width
+                && cfg.Height == dmdDesc.Height;
         }
     }
 }

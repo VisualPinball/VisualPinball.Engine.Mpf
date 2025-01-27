@@ -218,13 +218,23 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private bool DoesMachineDescriptionMatch(MachineDescription md)
         {
-            return _requestedSwitches.SequenceEqual(md.GetSwitches())
-                && _requestedCoils.SequenceEqual(md.GetCoils())
-                && _requestedLamps.SequenceEqual(md.GetLights())
+            return _requestedSwitches.All(
+                    (gleSw) => md.Switches.Any((mpfSw) => MpfExtensions.Equals(gleSw, mpfSw))
+                )
+                && _requestedCoils.All(
+                    (gleCoil) => md.Coils.Any((mpfCoil) => MpfExtensions.Equals(gleCoil, mpfCoil))
+                )
+                && _requestedLamps.All(
+                    (gleLamp) =>
+                        md.Lights.Any((mpfLight) => MpfExtensions.Equals(gleLamp, mpfLight))
+                )
+                && _mpfDotMatrixDisplays.All(
+                    (displayCfg) =>
+                        md.Dmds.Any((mpfDmd) => MpfExtensions.Equals(displayCfg, mpfDmd))
+                )
                 && _mpfSwitchNumbers.Equals(md.GetSwitchNumbersByNameDict())
                 && _mpfCoilNumbers.Equals(md.GetCoilNumbersByNameDict())
-                && _mpfLampNumbers.Equals(md.GetLampNumbersByNameDict())
-                && _mpfDotMatrixDisplays.SequenceEqual(md.GetDmds());
+                && _mpfLampNumbers.Equals(md.GetLampNumbersByNameDict());
         }
 
         // This method repeatedly tries to connect to MPF. Ideally, you would use gRPC's

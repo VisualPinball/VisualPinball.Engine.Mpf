@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NLog;
 using UnityEngine;
 using Logger = NLog.Logger;
@@ -37,6 +38,16 @@ namespace VisualPinball.Engine.Mpf.Unity
         public MpfNameNumberDictionary(Dictionary<string, string> namesByNumber)
         {
             Init(namesByNumber);
+        }
+
+        public bool Equals(Dictionary<string, string> numbersByName)
+        {
+            if (numbersByName.Count != _numbersByName.Count)
+                return false;
+
+            return numbersByName.All(
+                (kvp) => _numbersByName.TryGetValue(kvp.Key, out var value) && value == kvp.Value
+            );
         }
 
         public void Init(Dictionary<string, string> numbersByName)
