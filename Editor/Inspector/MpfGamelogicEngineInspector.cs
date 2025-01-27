@@ -49,11 +49,13 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                     {
                         Directory.CreateDirectory(Application.streamingAssetsPath);
                     }
+
                     var path = EditorUtility.OpenFolderPanel(
                         "Mission Pinball Framework: Choose machine folder",
                         Application.streamingAssetsPath,
                         ""
                     );
+
                     if (!string.IsNullOrWhiteSpace(path))
                     {
                         path = path.Replace("\\", "/");
@@ -61,7 +63,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                             path = "./StreamingAssets/" + path.Split("StreamingAssets/")[1];
 
                         var machineFolderProp = serializedObject.FindProperty(
-                            $"_mpfStarter.{nameof(MpfStarter._machineFolder)}"
+                            $"_mpfStarter._machineFolder"
                         );
                         machineFolderProp.stringValue = path;
                         serializedObject.ApplyModifiedProperties();

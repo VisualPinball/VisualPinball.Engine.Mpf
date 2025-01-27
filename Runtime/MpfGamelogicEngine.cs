@@ -109,12 +109,10 @@ namespace VisualPinball.Engine.Mpf.Unity
                 throw new Exception("The method should only be called in edit mode.");
 
             ct.ThrowIfCancellationRequested();
-            var starter = new MpfStarter()
-            {
-                _mediaController = MpfMediaController.None,
-                _outputType = MpfOutputType.LogInUnityConsole,
-                _machineFolder = _mpfStarter.MachineFolder,
-            };
+            var starter = MpfStarter.Create(
+                machineFolder: _mpfStarter.MachineFolder,
+                outputType: MpfOutputType.LogInUnityConsole
+            );
             using var mpfProcess = starter.StartMpf();
             using var handler = new YetAnotherHttpHandler() { Http2Only = true };
             var options = new GrpcChannelOptions() { HttpHandler = handler };

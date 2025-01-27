@@ -49,16 +49,30 @@ namespace VisualPinball.Engine.Mpf.Unity
     // adding a component with a field of this type to a game object.
     public class MpfStarter
     {
-        public MpfMediaController _mediaController = MpfMediaController.None;
-        public MpfOutputType _outputType = MpfOutputType.TableInTerminal;
-        public bool _verboseLogging = false;
-        public bool _cacheConfigFiles = true;
-        public bool _forceReloadConfig = false;
-        public bool _forceLoadAllAssetsOnStart = false;
-        public MpfExecutableSource _executableSource = MpfExecutableSource.Included;
-        public string _machineFolder = "./StreamingAssets/MpfMachineFolder";
+        [SerializeField]
+        private MpfExecutableSource _executableSource = MpfExecutableSource.Included;
 
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        [SerializeField]
+        private MpfMediaController _mediaController = MpfMediaController.None;
+
+        [SerializeField]
+        private MpfOutputType _outputType = MpfOutputType.TableInTerminal;
+
+        [SerializeField]
+        private string _machineFolder = "./StreamingAssets/MpfMachineFolder";
+
+        [SerializeField]
+        private bool _verboseLogging = false;
+
+        [SerializeField]
+        private bool _cacheConfigFiles = true;
+
+        [SerializeField]
+        private bool _forceReloadConfig = false;
+
+        [SerializeField]
+        private bool _forceLoadAllAssetsOnStart = false;
+        public static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public string MachineFolder
         {
@@ -74,6 +88,33 @@ namespace VisualPinball.Engine.Mpf.Unity
 
                 return _machineFolder;
             }
+        }
+
+        // This is a factory method instead of a constructor because otherwise Unity will not
+        // respect the default field values defined above when a new instance of the
+        // MpfGameLogicEngine is created in the inspector
+        public static MpfStarter Create(
+            MpfExecutableSource executableSource = MpfExecutableSource.Included,
+            MpfMediaController mediaController = MpfMediaController.None,
+            MpfOutputType outputType = MpfOutputType.TableInTerminal,
+            string machineFolder = "./StreamingAssets/MpfMachineFolder",
+            bool verboseLogging = false,
+            bool cacheConfigFiles = true,
+            bool forceReloadConfig = false,
+            bool forceLoadAllAssetsOnStart = false
+        )
+        {
+            return new MpfStarter
+            {
+                _executableSource = executableSource,
+                _mediaController = mediaController,
+                _outputType = outputType,
+                _machineFolder = machineFolder,
+                _verboseLogging = verboseLogging,
+                _cacheConfigFiles = cacheConfigFiles,
+                _forceReloadConfig = forceReloadConfig,
+                _forceLoadAllAssetsOnStart = forceLoadAllAssetsOnStart,
+            };
         }
 
         private MpfOutputType OutputTypeOverride =>
