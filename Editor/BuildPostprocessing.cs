@@ -34,13 +34,28 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             )
                 return;
 
-            Logger.Info("Adding MPF binaries to build...");
+            var streamingAssetsPath = FindStreamingAssets(report.summary.outputPath);
+            CleanMachineFolder(streamingAssetsPath);
+            AddMpfBinaries(report.summary.platform, streamingAssetsPath);
+        }
 
+        private static string FindStreamingAssets(string buildExePath)
+        {
+            var dataDir = Directory
+                .GetDirectories(Directory.GetParent(buildExePath).ToString(), "*_Data")
+                .FirstOrDefault();
+
+            return Path.Combine(dataDir, "StreamingAssets");
+        }
+
+        private static void AddMpfBinaries(BuildTarget platform, string streamingAssetsPath)
+        {
+            Logger.Info("Adding MPF binaries to build...");
             // Get the directory of the MPF package from the Unity package manager
             var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(
                 typeof(BuildPostprocessing).Assembly
             );
-            var platform = report.summary.platform;
+
             var binaryDirName = platform switch
             {
                 BuildTarget.StandaloneLinux64 => Constants.MpfBinaryDirLinux,
@@ -59,13 +74,8 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 binaryDirName
             );
 
-            var dataDir = Directory
-                .GetDirectories(Directory.GetParent(report.summary.outputPath).ToString(), "*_Data")
-                .FirstOrDefault();
-
             var destPath = Path.Combine(
-                dataDir,
-                "StreamingAssets",
+                streamingAssetsPath,
                 Constants.MpfBinariesDirName,
                 binaryDirName
             );
@@ -74,6 +84,31 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             CopyUtil.CopyDirectory(sourcePath, destPath, recursive: true, overwrite: true);
 
             Logger.Info("Successfully added MPF binaries to build.");
+        }
+
+        private static void CleanMachineFolder(string streamingAssetsPath)
+        {
+            Logger.Info("Removing log files and audits from machine folder...");
+
+            var machineFolders = Directory
+                .GetDirectories(streamingAssetsPath)
+                .Where((dir) => File.Exists(Path.Combine(dir, "config", "config.yaml")));
+
+            foreach (var mf in machineFolders)
+            {
+                // Delete log files from previous runs
+                var logDir = Path.Combine(mf, "logs");
+                var logFiles = Directory.GetFiles(logDir, "*.log", SearchOption.TopDirectoryOnly);
+                foreach (var logFile in logFiles)
+                    File.Delete(logFile);
+
+                // Delete audits file (contains statistics about previous runs)
+                var auditsFile = Path.Combine(mf, "data", "audits.yaml");
+                if (File.Exists(auditsFile))
+                    File.Delete(auditsFile);
+            }
+
+            Logger.Info("Successfully removed log files and audits from machine folder.");
         }
     }
 }
