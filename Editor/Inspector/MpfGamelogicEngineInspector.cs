@@ -17,7 +17,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Grpc.Core;
-using NLog.Filters;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -33,12 +32,14 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
         private VisualTreeAsset _inspectorXml;
 
         private CancellationTokenSource _getMachineDescCts;
+        private MpfGamelogicEngine _mpfEngine;
+        private TextField _mpfStateField;
 
         public override VisualElement CreateInspectorGUI()
         {
             var root = _inspectorXml.Instantiate();
-            var mpfEngine = (MpfGamelogicEngine)serializedObject.targetObject;
-            var tableComponent = mpfEngine.GetComponentInParent<TableComponent>();
+            _mpfEngine = (MpfGamelogicEngine)serializedObject.targetObject;
+            var tableComponent = _mpfEngine.GetComponentInParent<TableComponent>();
 
             var machineFolderField = root.Q<TextField>("machine-folder");
             var machineFolderInput = machineFolderField.Q(name: "unity-text-input");
@@ -79,8 +80,8 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
             getDescBtn.clicked += async () =>
             {
-                Undo.RecordObject(mpfEngine, "Get machine description");
-                PrefabUtility.RecordPrefabInstancePropertyModifications(mpfEngine);
+                Undo.RecordObject(_mpfEngine, "Get machine description");
+                PrefabUtility.RecordPrefabInstancePropertyModifications(_mpfEngine);
                 if (_getMachineDescCts == null)
                 {
                     _getMachineDescCts = new CancellationTokenSource();
@@ -88,7 +89,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
                     try
                     {
-                        await mpfEngine.QueryParseAndStoreMpfMachineDescription(
+                        await _mpfEngine.QueryParseAndStoreMpfMachineDescription(
                             _getMachineDescCts.Token
                         );
                     }
@@ -130,7 +131,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 {
                     Undo.RecordObject(tableComponent, "Populate hardware");
                     PrefabUtility.RecordPrefabInstancePropertyModifications(tableComponent);
-                    tableComponent.RepopulateHardware(mpfEngine);
+                    tableComponent.RepopulateHardware(_mpfEngine);
                     TableSelector.Instance.TableUpdated();
                     SceneView.RepaintAll();
                 }
@@ -140,35 +141,39 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 nameof(MpfGamelogicEngine._requestedSwitches)
             );
             var switchFoldout = root.Q<Foldout>("switches");
-            UpdateSwitchList(mpfEngine, switchFoldout);
+            UpdateSwitchList(_mpfEngine, switchFoldout);
             switchFoldout.TrackPropertyValue(
                 switchesProp,
-                (prop) => UpdateSwitchList(mpfEngine, switchFoldout)
+                (prop) => UpdateSwitchList(_mpfEngine, switchFoldout)
             );
 
             var coilsProp = serializedObject.FindProperty(
                 nameof(MpfGamelogicEngine._requestedCoils)
             );
             var coilFoldout = root.Q<Foldout>("coils");
-            UpdateCoilList(mpfEngine, coilFoldout);
+            UpdateCoilList(_mpfEngine, coilFoldout);
             coilFoldout.TrackPropertyValue(
                 coilsProp,
-                (prop) => UpdateCoilList(mpfEngine, coilFoldout)
+                (prop) => UpdateCoilList(_mpfEngine, coilFoldout)
             );
 
             var lampsProp = serializedObject.FindProperty(
                 nameof(MpfGamelogicEngine._requestedLamps)
             );
             var lampsFoldout = root.Q<Foldout>("lamps");
-            UpdateLampList(mpfEngine, lampsFoldout);
+            UpdateLampList(_mpfEngine, lampsFoldout);
             lampsFoldout.TrackPropertyValue(
                 lampsProp,
                 (prop) =>
                 {
-                    IEnumerable<string> ids = mpfEngine.RequestedLamps.Select(lamp => lamp.Id);
+                    IEnumerable<string> ids = _mpfEngine.RequestedLamps.Select(lamp => lamp.Id);
                     UpdateGameItemList(lampsFoldout, ids);
                 }
             );
+
+            _mpfStateField = root.Q<TextField>("mpf-state");
+            _mpfStateField.value = _mpfEngine.MpfState.ToString();
+            _mpfEngine.OnMpfStateChanged += HandleMpfStateChanged;
 
             return root;
         }
@@ -178,6 +183,13 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             _getMachineDescCts?.Cancel();
             _getMachineDescCts?.Dispose();
             _getMachineDescCts = null;
+
+            _mpfEngine.OnMpfStateChanged -= HandleMpfStateChanged;
+        }
+
+        private void HandleMpfStateChanged(object sender, MpfStateChangedEventArgs args)
+        {
+            _mpfStateField.value = args.NewState.ToString();
         }
 
         private void UpdateSwitchList(MpfGamelogicEngine mpfEngine, VisualElement parent)

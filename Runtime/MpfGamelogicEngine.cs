@@ -30,10 +30,22 @@ namespace VisualPinball.Engine.Mpf.Unity
 {
     public enum MpfState
     {
-        NotRunning,
+        NotConnected,
         Starting,
         Running,
         Stopping,
+    }
+
+    public class MpfStateChangedEventArgs : EventArgs
+    {
+        public readonly MpfState NewState;
+        public readonly MpfState PrevState;
+
+        public MpfStateChangedEventArgs(MpfState newState, MpfState prevState)
+        {
+            NewState = newState;
+            PrevState = prevState;
+        }
     }
 
     public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine
@@ -78,6 +90,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         private AsyncClientStreamingCall<SwitchChanges, EmptyResponse> _mpfSwitchStreamCall;
         private CancellationTokenSource _mpfCommunicationCts;
         private Task _receiveMpfCommandsTask;
+        private MpfState _mpfState;
 
         private const string _grpcAddress = "http://localhost:50051";
 
@@ -98,9 +111,25 @@ namespace VisualPinball.Engine.Mpf.Unity
         public event EventHandler<CoilEventArgs> OnCoilChanged;
         public event EventHandler<EventArgs> OnStarted;
         public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
+        public event EventHandler<MpfStateChangedEventArgs> OnMpfStateChanged;
 #pragma warning restore CS0067
 
-        public MpfState MpfState { get; private set; }
+        public MpfState MpfState
+        {
+            get => _mpfState;
+            private set
+            {
+                if (value != _mpfState)
+                {
+                    var prevState = _mpfState;
+                    _mpfState = value;
+                    OnMpfStateChanged?.Invoke(
+                        this,
+                        new MpfStateChangedEventArgs(_mpfState, prevState)
+                    );
+                }
+            }
+        }
 
 #if UNITY_EDITOR
         public async Task QueryParseAndStoreMpfMachineDescription(CancellationToken ct)
@@ -369,7 +398,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                     _mpfProcess?.Kill();
             }
 
-            MpfState = MpfState.NotRunning;
+            MpfState = MpfState.NotConnected;
 
             _receiveMpfCommandsTask = null;
             _mpfCommunicationCts?.Dispose();
@@ -399,7 +428,10 @@ namespace VisualPinball.Engine.Mpf.Unity
             catch (RpcException ex)
             {
                 if (!_mpfCommunicationCts.IsCancellationRequested)
+                {
+                    MpfState = MpfState.NotConnected;
                     Logger.Error($"Unable to receive commands from MPF: {ex}");
+                }
             }
         }
 

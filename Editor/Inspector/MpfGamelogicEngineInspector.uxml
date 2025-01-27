@@ -1,6 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
-    <Style src="project://database/Packages/org.visualpinball.engine.missionpinball/Editor/GroupBoxLabel.uss?fileID=7433441132597879392&amp;guid=32163019b734fa94dafc96ec9304b7ec&amp;type=3#GroupBoxLabel" />
-    <Style src="project://database/Packages/org.visualpinball.engine.missionpinball/Editor/GroupBox.uss?fileID=7433441132597879392&amp;guid=251f815130cb3b74c8a2df32eb5a0525&amp;type=3#GroupBox" />
+    <Style src="project://database/Packages/org.visualpinball.engine.missionpinball/Editor/Inspector/Styles/GroupBoxLabel.uss?fileID=7433441132597879392&amp;guid=32163019b734fa94dafc96ec9304b7ec&amp;type=3#GroupBoxLabel" />
+    <Style src="project://database/Packages/org.visualpinball.engine.missionpinball/Editor/Inspector/Styles/GroupBox.uss?fileID=7433441132597879392&amp;guid=251f815130cb3b74c8a2df32eb5a0525&amp;type=3#GroupBox" />
+    <ui:TextField picking-mode="Ignore" label="MPF State" readonly="true" name="mpf-state" class="unity-base-field__aligned" />
     <ui:GroupBox name="options" text="Options">
         <uie:PropertyField name="executable-source" binding-path="_mpfStarter._executableSource" label="Executable Source" focusable="true" tooltip="You can opt not to use the version of MPF that comes with VPE and install your own instead." />
         <ui:TextField picking-mode="Ignore" label="Machine Folder" name="machine-folder" readonly="true" binding-path="_mpfStarter._machineFolder" class="unity-base-field__aligned" />
