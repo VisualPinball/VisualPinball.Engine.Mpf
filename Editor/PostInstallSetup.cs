@@ -39,7 +39,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             // Copy sample machine folder to streaming assets
             var sourcePath = Path.Combine(path, "SampleMachineFolder");
             var destPath = Path.Combine(Application.streamingAssetsPath, "MpfMachineFolder");
-            CopyUtil.CopyDirectory(sourcePath, destPath, recursive: true);
+            CopyUtil.CopyDirectory(sourcePath, destPath, recursive: true, overwrite: false);
         }
     }
 }

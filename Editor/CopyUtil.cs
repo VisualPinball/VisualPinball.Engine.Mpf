@@ -16,7 +16,12 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
     public static class CopyUtil
     {
         // Source: https://learn.microsoft.com/en-us/dotnet/standard/io/how-to-copy-directories
-        public static void CopyDirectory(string sourceDir, string destinationDir, bool recursive)
+        public static void CopyDirectory(
+            string sourceDir,
+            string destinationDir,
+            bool recursive,
+            bool overwrite
+        )
         {
             var dir = new DirectoryInfo(sourceDir);
 
@@ -31,7 +36,8 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 if (file.Extension == ".meta")
                     continue;
                 string targetFilePath = Path.Combine(destinationDir, file.Name);
-                file.CopyTo(targetFilePath, overwrite: false);
+                if (overwrite || !File.Exists(targetFilePath))
+                    file.CopyTo(targetFilePath, overwrite);
             }
 
             if (recursive)
@@ -39,7 +45,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 foreach (DirectoryInfo subDir in dirs)
                 {
                     string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
-                    CopyDirectory(subDir.FullName, newDestinationDir, true);
+                    CopyDirectory(subDir.FullName, newDestinationDir, true, overwrite);
                 }
             }
         }

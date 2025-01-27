@@ -71,7 +71,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             );
 
             Directory.CreateDirectory(destPath);
-            CopyUtil.CopyDirectory(sourcePath, destPath, recursive: true);
+            CopyUtil.CopyDirectory(sourcePath, destPath, recursive: true, overwrite: true);
 
             Logger.Info("Successfully added MPF binaries to build.");
         }
