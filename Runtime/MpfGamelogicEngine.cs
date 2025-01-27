@@ -205,6 +205,26 @@ namespace VisualPinball.Engine.Mpf.Unity
             _receiveMpfCommandsTask = ReceiveMpfCommands();
             OnDisplaysRequested?.Invoke(this, new RequestedDisplays(_mpfDotMatrixDisplays));
             OnStarted?.Invoke(this, EventArgs.Empty);
+
+            var machineDescription = await client.GetMachineDescriptionAsync(
+                new EmptyRequest(),
+                deadline: DateTime.UtcNow.AddSeconds(1),
+                cancellationToken: ct
+            );
+
+            if (!DoesMachineDescriptionMatch(machineDescription))
+                Logger.Warn("Mismatch between MPF's and VPE's machine description detected.");
+        }
+
+        private bool DoesMachineDescriptionMatch(MachineDescription md)
+        {
+            return _requestedSwitches.SequenceEqual(md.GetSwitches())
+                && _requestedCoils.SequenceEqual(md.GetCoils())
+                && _requestedLamps.SequenceEqual(md.GetLights())
+                && _mpfSwitchNumbers.Equals(md.GetSwitchNumbersByNameDict())
+                && _mpfCoilNumbers.Equals(md.GetCoilNumbersByNameDict())
+                && _mpfLampNumbers.Equals(md.GetLampNumbersByNameDict())
+                && _mpfDotMatrixDisplays.SequenceEqual(md.GetDmds());
         }
 
         // This method repeatedly tries to connect to MPF. Ideally, you would use gRPC's
