@@ -73,6 +73,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             );
 
             var getDescBtn = root.Q<Button>("get-machine-description");
+            var optionsBox = root.Q<GroupBox>("options");
             if (Application.isPlaying)
                 getDescBtn.SetEnabled(false);
 
@@ -86,6 +87,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 {
                     _getMachineDescCts = new CancellationTokenSource();
                     getDescBtn.text = "Cancel";
+                    optionsBox.SetEnabled(false);
 
                     try
                     {
@@ -100,16 +102,20 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                                 && exception.StatusCode == StatusCode.Cancelled
                             )
                         ) { }
-
-                    getDescBtn.text = getDescBtnDefaultText;
-                    _getMachineDescCts?.Dispose();
-                    _getMachineDescCts = null;
+                    finally
+                    {
+                        optionsBox.SetEnabled(true);
+                        getDescBtn.text = getDescBtnDefaultText;
+                        _getMachineDescCts?.Dispose();
+                        _getMachineDescCts = null;
+                    }
                 }
                 else
                 {
                     _getMachineDescCts?.Cancel();
                     _getMachineDescCts?.Dispose();
                     _getMachineDescCts = null;
+                    optionsBox.SetEnabled(true);
                     getDescBtn.text = getDescBtnDefaultText;
                 }
             };
@@ -171,10 +177,6 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 }
             );
 
-            _mpfStateField = root.Q<TextField>("mpf-state");
-            _mpfStateField.value = _mpfEngine.MpfState.ToString();
-            _mpfEngine.OnMpfStateChanged += HandleMpfStateChanged;
-
             return root;
         }
 
@@ -183,13 +185,6 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             _getMachineDescCts?.Cancel();
             _getMachineDescCts?.Dispose();
             _getMachineDescCts = null;
-
-            _mpfEngine.OnMpfStateChanged -= HandleMpfStateChanged;
-        }
-
-        private void HandleMpfStateChanged(object sender, MpfStateChangedEventArgs args)
-        {
-            _mpfStateField.value = args.NewState.ToString();
         }
 
         private void UpdateSwitchList(MpfGamelogicEngine mpfEngine, VisualElement parent)

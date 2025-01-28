@@ -11,14 +11,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Cysharp.Net.Http;
-using Grpc.Core;
-using Grpc.Net.Client;
 using Mpf.Vpe;
 using NLog;
 using UnityEngine;
@@ -28,28 +23,15 @@ using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity
 {
-    public enum MpfState
-    {
-        NotConnected,
-        Starting,
-        Running,
-        Stopping,
-    }
-
-    public class MpfStateChangedEventArgs : EventArgs
-    {
-        public readonly MpfState NewState;
-        public readonly MpfState PrevState;
-
-        public MpfStateChangedEventArgs(MpfState newState, MpfState prevState)
-        {
-            NewState = newState;
-            PrevState = prevState;
-        }
-    }
-
+    /// <summary>
+    /// Allows the Mission Pinball Framework to drive VPE by sending switch changes to MPF
+    /// and applying changes to coils, lights and hardware rules requested by MPF.
+    /// </summary>
     public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine
     {
+        [SerializeField]
+        private MpfWrangler _mpfWrangler;
+
         [SerializeField]
         public SerializedGamelogicEngineSwitch[] _requestedSwitches =
             Array.Empty<SerializedGamelogicEngineSwitch>();
@@ -63,10 +45,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             Array.Empty<SerializedGamelogicEngineCoil>();
 
         [SerializeField]
-        private MpfStarter _mpfStarter;
-
-        [SerializeField]
-        private float _connectTimeout = 20f;
+        private DisplayConfig[] _mpfDotMatrixDisplays;
 
         // MPF uses names and numbers/ids (for hardware mapping) to identify switches, coils, and
         // lamps. VPE only uses names, which is why the arrays above do not store the numbers.
@@ -80,19 +59,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         [SerializeField]
         private MpfNameNumberDictionary _mpfLampNumbers = new();
 
-        [SerializeField]
-        private DisplayConfig[] _mpfDotMatrixDisplays;
-
         private Player _player;
-        private Process _mpfProcess;
-        private GrpcChannel _grpcChannel;
-        private AsyncServerStreamingCall<Commands> _mpfCommandStreamCall;
-        private AsyncClientStreamingCall<SwitchChanges, EmptyResponse> _mpfSwitchStreamCall;
-        private CancellationTokenSource _mpfCommunicationCts;
-        private Task _receiveMpfCommandsTask;
-        private MpfState _mpfState;
-
-        private const string _grpcAddress = "http://localhost:50051";
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -101,6 +68,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         public GamelogicEngineLamp[] RequestedLamps => _requestedLamps;
         public GamelogicEngineCoil[] RequestedCoils => _requestedCoils;
         public GamelogicEngineWire[] AvailableWires => Array.Empty<GamelogicEngineWire>();
+        public MpfWrangler MpfWrangler => _mpfWrangler;
 
 #pragma warning disable CS0067
         public event EventHandler<RequestedDisplays> OnDisplaysRequested;
@@ -111,76 +79,50 @@ namespace VisualPinball.Engine.Mpf.Unity
         public event EventHandler<CoilEventArgs> OnCoilChanged;
         public event EventHandler<EventArgs> OnStarted;
         public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
-        public event EventHandler<MpfStateChangedEventArgs> OnMpfStateChanged;
 #pragma warning restore CS0067
-
-        public MpfState MpfState
-        {
-            get => _mpfState;
-            private set
-            {
-                if (value != _mpfState)
-                {
-                    var prevState = _mpfState;
-                    _mpfState = value;
-                    OnMpfStateChanged?.Invoke(
-                        this,
-                        new MpfStateChangedEventArgs(_mpfState, prevState)
-                    );
-                }
-            }
-        }
 
 #if UNITY_EDITOR
         public async Task QueryParseAndStoreMpfMachineDescription(CancellationToken ct)
         {
             if (Application.isPlaying)
-                throw new Exception("The method should only be called in edit mode.");
+                throw new Exception("This method should only be called in edit mode.");
 
             ct.ThrowIfCancellationRequested();
-            var starter = MpfStarter.Create(
-                machineFolder: _mpfStarter.MachineFolder,
-                outputType: MpfOutputType.LogInUnityConsole
-            );
-            using var mpfProcess = starter.StartMpf();
-            using var handler = new YetAnotherHttpHandler() { Http2Only = true };
-            var options = new GrpcChannelOptions() { HttpHandler = handler };
-            using var grpcChannel = GrpcChannel.ForAddress(_grpcAddress, options);
-
-            MachineDescription machineDescription = null;
-
+            var defaultWrangler = _mpfWrangler;
             try
             {
-                await WaitUntilMpfReady(grpcChannel, ct);
+                // Use a new wrangler that has the right options for getting the machine
+                // description. The _mpfWrangler field is temporarily overwritten to make the
+                // MPF state of this wrangler show up in the inspector.
+                _mpfWrangler = MpfWrangler.Create(
+                    mediaController: MpfMediaController.None,
+                    outputType: MpfOutputType.LogInUnityConsole,
+                    machineFolder: _mpfWrangler.MachineFolder,
+                    cacheConfigFiles: false,
+                    forceReloadConfig: true
+                );
+                // Not runtime, so there is no machine state.
+                // Also doesn't matter for getting machine desc.
+                var initialState = new MachineState();
 
-                var client = new MpfHardwareService.MpfHardwareServiceClient(grpcChannel);
-                client.Start(new MachineState(), cancellationToken: ct);
-                machineDescription = await client.GetMachineDescriptionAsync(
-                    new EmptyRequest(),
-                    deadline: DateTime.UtcNow.AddSeconds(1),
-                    cancellationToken: ct
-                );
-                await client.QuitAsync(
-                    new QuitRequest(),
-                    deadline: DateTime.UtcNow.AddSeconds(1),
-                    cancellationToken: ct
-                );
+                await _mpfWrangler.StartMpf(initialState, ct);
+                var machineDescription = await _mpfWrangler.GetMachineDescription(ct);
+                await _mpfWrangler.StopMpf();
+
+                ct.ThrowIfCancellationRequested();
+
+                _requestedSwitches = machineDescription.GetSwitches().ToArray();
+                _requestedCoils = machineDescription.GetCoils().ToArray();
+                _requestedLamps = machineDescription.GetLights().ToArray();
+                _mpfSwitchNumbers.Init(machineDescription.GetSwitchNumbersByNameDict());
+                _mpfCoilNumbers.Init(machineDescription.GetCoilNumbersByNameDict());
+                _mpfLampNumbers.Init(machineDescription.GetLampNumbersByNameDict());
+                _mpfDotMatrixDisplays = machineDescription.GetDmds().ToArray();
             }
-            catch (Exception ex)
+            finally
             {
-                mpfProcess.Kill();
-                throw ex;
+                _mpfWrangler = defaultWrangler;
             }
-
-            ct.ThrowIfCancellationRequested();
-
-            _requestedSwitches = machineDescription.GetSwitches().ToArray();
-            _requestedCoils = machineDescription.GetCoils().ToArray();
-            _requestedLamps = machineDescription.GetLights().ToArray();
-            _mpfSwitchNumbers.Init(machineDescription.GetSwitchNumbersByNameDict());
-            _mpfCoilNumbers.Init(machineDescription.GetCoilNumbersByNameDict());
-            _mpfLampNumbers.Init(machineDescription.GetLampNumbersByNameDict());
-            _mpfDotMatrixDisplays = machineDescription.GetDmds().ToArray();
         }
 #endif
 
@@ -192,363 +134,46 @@ namespace VisualPinball.Engine.Mpf.Unity
         )
         {
             ct.ThrowIfCancellationRequested();
-            MpfState = MpfState.Starting;
+
             _player = player;
-            _mpfProcess = _mpfStarter.StartMpf();
-            var handler = new YetAnotherHttpHandler() { Http2Only = true };
-            var options = new GrpcChannelOptions()
-            {
-                HttpHandler = handler,
-                DisposeHttpClient = true,
-            };
-            _grpcChannel = GrpcChannel.ForAddress(_grpcAddress, options);
-            _mpfCommunicationCts = new CancellationTokenSource();
-            using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(
-                ct,
-                _mpfCommunicationCts.Token
-            );
 
-            try
-            {
-                await WaitUntilMpfReady(_grpcChannel, waitCts.Token);
-            }
-            catch (OperationCanceledException ex)
-            {
-                _mpfCommunicationCts?.Dispose();
-                _mpfCommunicationCts = null;
-                _grpcChannel?.Dispose();
-                _grpcChannel = null;
-                _mpfProcess?.Kill();
-                _mpfProcess?.Dispose();
-                _mpfProcess = null;
-                throw ex;
-            }
+            _mpfWrangler.MpfFadeLightRequestReceived += ExecuteMpfFadeLightRequest;
+            _mpfWrangler.MpfPulseCoilRequestReceived += ExecuteMpfPulseCoilRequest;
+            _mpfWrangler.MpfEnableCoilRequestReceived += ExecuteMpfEnableCoilRequest;
+            _mpfWrangler.MpfDisableCoilRequestReceived += ExecuteMpfCommandDisableCoilRequest;
+            _mpfWrangler.MpfConfigureHardwareRuleRequestReceived +=
+                ExecuteMpfConfigureHardwareRuleRequest;
+            _mpfWrangler.MpfRemoveHardwareRuleRequestReceived +=
+                ExecuteMpfRemoveHardwareRuleRequest;
+            _mpfWrangler.MpfSetDmdFrameRequestReceived += ExecuteMpfSetDmdFrameRequest;
+            _mpfWrangler.MpfSetSegmentDisplayFrameRequestReceived +=
+                ExecuteMpfSetSegmentDisplayFrameRequest;
 
-            MpfState = MpfState.Running;
-            var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
-            var s = CompileMachineState(player);
-            _mpfCommandStreamCall = client.Start(s, cancellationToken: _mpfCommunicationCts.Token);
-            _mpfSwitchStreamCall = client.SendSwitchChanges(
-                cancellationToken: _mpfCommunicationCts.Token
-            );
-            _receiveMpfCommandsTask = ReceiveMpfCommands();
+            MachineState initialState = CompileMachineState(player);
+            await _mpfWrangler.StartMpf(initialState, ct);
+
             OnDisplaysRequested?.Invoke(this, new RequestedDisplays(_mpfDotMatrixDisplays));
             OnStarted?.Invoke(this, EventArgs.Empty);
 
-            var machineDescription = await client.GetMachineDescriptionAsync(
-                new EmptyRequest(),
-                deadline: DateTime.UtcNow.AddSeconds(1),
-                cancellationToken: ct
-            );
-
-            if (!DoesMachineDescriptionMatch(machineDescription))
+            var md = await _mpfWrangler.GetMachineDescription(ct);
+            if (!DoesMachineDescriptionMatch(md))
                 Logger.Warn("Mismatch between MPF's and VPE's machine description detected.");
-        }
-
-        private bool DoesMachineDescriptionMatch(MachineDescription md)
-        {
-            return _requestedSwitches.All(
-                    (gleSw) => md.Switches.Any((mpfSw) => MpfExtensions.Equals(gleSw, mpfSw))
-                )
-                && _requestedCoils.All(
-                    (gleCoil) => md.Coils.Any((mpfCoil) => MpfExtensions.Equals(gleCoil, mpfCoil))
-                )
-                && _requestedLamps.All(
-                    (gleLamp) =>
-                        md.Lights.Any((mpfLight) => MpfExtensions.Equals(gleLamp, mpfLight))
-                )
-                && _mpfDotMatrixDisplays.All(
-                    (displayCfg) =>
-                        md.Dmds.Any((mpfDmd) => MpfExtensions.Equals(displayCfg, mpfDmd))
-                )
-                && _mpfSwitchNumbers.Equals(md.GetSwitchNumbersByNameDict())
-                && _mpfCoilNumbers.Equals(md.GetCoilNumbersByNameDict())
-                && _mpfLampNumbers.Equals(md.GetLampNumbersByNameDict());
-        }
-
-        // This method repeatedly tries to connect to MPF. Ideally, you would use gRPC's
-        // wait-for-ready feature instead, but it is not supported in .netstandard 2.1, which is
-        // mandated by Unity. Links:
-        // https://grpc.io/docs/guides/wait-for-ready/
-        // https://github.com/grpc/grpc-dotnet/issues/1190
-        // https://github.com/grpc/grpc-dotnet/blob/c9d26719e8b2a8f03424cacbb168540e35a94b0b/src/Grpc.Net.Client/Grpc.Net.Client.csproj#L21C1-L23C19
-        // Alternatively, you could use the channel status, but that is also not supported:
-        // https://github.com/grpc/grpc-dotnet/issues/1275
-        // Previously, the problem was 'solved' by simply waiting 1.5 seconds to give MPF
-        // time to start up, but depending on the computer and whether or not prepackaged
-        // (pyinstaller) binaries are used, this is not always enough.
-        private async Task WaitUntilMpfReady(GrpcChannel channel, CancellationToken ct)
-        {
-            ct.ThrowIfCancellationRequested();
-            Logger.Info("Attempting to connect to MPF...");
-            var startTime = DateTime.Now;
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_connectTimeout), cts.Token);
-            var pingTask = PingUntilResponse(channel, cts.Token);
-
-            if (await Task.WhenAny(pingTask, timeoutTask) == pingTask)
-            {
-                var pingResponse = await pingTask;
-                cts.Cancel();
-                try
-                {
-                    await timeoutTask;
-                }
-                catch (OperationCanceledException) { }
-                var timeToConnect = (DateTime.Now - startTime).TotalSeconds;
-                Logger.Info(
-                    $"Successfully connected to MPF in {timeToConnect:F2} seconds. "
-                        + $"MPF version: {pingResponse.MpfVersion}"
-                );
-                return;
-            }
-
-            await timeoutTask;
-            cts.Cancel();
-            try
-            {
-                await pingTask;
-            }
-            catch (OperationCanceledException) { }
-            throw new TimeoutException(
-                $"Timed out trying to connect to MPF after {_connectTimeout} seconds."
-            );
-        }
-
-        private async Task<PingResponse> PingUntilResponse(
-            GrpcChannel channel,
-            CancellationToken ct
-        )
-        {
-            ct.ThrowIfCancellationRequested();
-            while (true)
-            {
-                try
-                {
-                    var client = new MpfHardwareService.MpfHardwareServiceClient(channel);
-                    var response = await client.PingAsync(
-                        new EmptyRequest(),
-                        deadline: DateTime.UtcNow.AddSeconds(1),
-                        cancellationToken: ct
-                    );
-                    return response;
-                }
-                catch (Exception ex) when (ex is IOException || ex is RpcException) { }
-                ct.ThrowIfCancellationRequested();
-                Logger.Info("No response from MPF. Retrying...");
-            }
-        }
-
-        private MachineState CompileMachineState(Player player)
-        {
-            var initialState = new MachineState();
-            foreach (var switchName in player.SwitchStatuses.Keys)
-            {
-                if (_mpfSwitchNumbers.TryGetNumberByName(switchName, out var number))
-                {
-                    var isClosed = player.SwitchStatuses[switchName].IsSwitchClosed;
-                    initialState.InitialSwitchStates.Add(number, isClosed);
-                }
-            }
-            return initialState;
         }
 
         private async void OnDestroy()
         {
-            if (MpfState == MpfState.Running)
-            {
-                MpfState = MpfState.Stopping;
-                var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
-                try
-                {
-                    await client.QuitAsync(
-                        new QuitRequest(),
-                        deadline: DateTime.UtcNow.AddSeconds(1)
-                    );
-                }
-                catch (RpcException ex)
-                {
-                    Logger.Error($"Failed to send quit message to MPF: {ex}");
-                }
-            }
-
-            _mpfCommunicationCts?.Cancel();
-            if (_receiveMpfCommandsTask != null)
-                await _receiveMpfCommandsTask;
-
-            if (_mpfProcess != null && !_mpfProcess.HasExited)
-            {
-                if (MpfState == MpfState.Stopping)
-                {
-                    // MPF should shut down on its own after receiving the Quit message.
-                    // If it is still running after one second, just kill it.
-                    var processExited = new TaskCompletionSource<bool>();
-                    _mpfProcess.Exited += new EventHandler(
-                        (sender, args) => processExited.TrySetResult(true)
-                    );
-
-                    if (
-                        await Task.WhenAny(processExited.Task, Task.Delay(TimeSpan.FromSeconds(1)))
-                            != processExited.Task
-                        && !_mpfProcess.HasExited
-                    )
-                        _mpfProcess?.Kill();
-                }
-                else
-                    _mpfProcess?.Kill();
-            }
-
-            MpfState = MpfState.NotConnected;
-
-            _receiveMpfCommandsTask = null;
-            _mpfCommunicationCts?.Dispose();
-            _mpfCommunicationCts = null;
-            _mpfCommandStreamCall?.Dispose();
-            _mpfCommandStreamCall = null;
-            _mpfSwitchStreamCall?.Dispose();
-            _mpfSwitchStreamCall = null;
-            _grpcChannel?.Dispose();
-            _grpcChannel = null;
-            _mpfProcess?.Dispose();
-            _mpfProcess = null;
-        }
-
-        private async Task ReceiveMpfCommands()
-        {
-            try
-            {
-                while (
-                    await _mpfCommandStreamCall.ResponseStream.MoveNext(_mpfCommunicationCts.Token)
-                )
-                {
-                    var command = _mpfCommandStreamCall.ResponseStream.Current;
-                    ExecuteMpfCommand(command);
-                }
-            }
-            catch (RpcException ex)
-            {
-                if (!_mpfCommunicationCts.IsCancellationRequested)
-                {
-                    MpfState = MpfState.NotConnected;
-                    Logger.Error($"Unable to receive commands from MPF: {ex}");
-                }
-            }
-        }
-
-        private void ExecuteMpfCommand(Commands command)
-        {
-            switch (command.CommandCase)
-            {
-                case Commands.CommandOneofCase.None:
-                    break;
-                case Commands.CommandOneofCase.FadeLight:
-                    var args = new List<LampEventArgs>();
-                    foreach (var fade in command.FadeLight.Fades)
-                    {
-                        if (_mpfLampNumbers.TryGetNameByNumber(fade.LightNumber, out var lampName))
-                            args.Add(new LampEventArgs(lampName, fade.TargetBrightness));
-                        else
-                            Logger.Error(
-                                $"MPF sent a lamp number '{fade.LightNumber}' that is"
-                                    + $" not associated with a lamp id."
-                            );
-
-                        OnLampsChanged?.Invoke(this, new LampsEventArgs(args.ToArray()));
-                    }
-                    break;
-                case Commands.CommandOneofCase.PulseCoil:
-                    if (
-                        _mpfCoilNumbers.TryGetNameByNumber(
-                            command.PulseCoil.CoilNumber,
-                            out var coilName
-                        )
-                    )
-                    {
-                        SetCoil(coilName, true);
-                        _player.ScheduleAction(
-                            command.PulseCoil.PulseMs,
-                            () => SetCoil(coilName, false)
-                        );
-                    }
-                    else
-                        Logger.Error(
-                            $"MPF sent a coil number '{command.PulseCoil.CoilNumber}'"
-                                + $" that is not associated with a coil id."
-                        );
-                    break;
-                case Commands.CommandOneofCase.EnableCoil:
-                    if (
-                        _mpfCoilNumbers.TryGetNameByNumber(
-                            command.EnableCoil.CoilNumber,
-                            out coilName
-                        )
-                    )
-                        SetCoil(coilName, true);
-                    else
-                        Logger.Error(
-                            $"MPF sent a coil number '{command.EnableCoil.CoilNumber}'"
-                                + $" that is not associated with a coil id."
-                        );
-                    break;
-                case Commands.CommandOneofCase.DisableCoil:
-                    if (
-                        _mpfCoilNumbers.TryGetNameByNumber(
-                            command.DisableCoil.CoilNumber,
-                            out coilName
-                        )
-                    )
-                        SetCoil(coilName, false);
-                    else
-                        Logger.Error(
-                            $"MPF sent a coil number '{command.DisableCoil.CoilNumber}'"
-                                + $" that is not associated with a coil id."
-                        );
-                    break;
-                case Commands.CommandOneofCase.ConfigureHardwareRule:
-                    var switchNumber = command.ConfigureHardwareRule.SwitchNumber;
-                    var coilNumber = command.ConfigureHardwareRule.CoilNumber;
-                    if (
-                        _mpfSwitchNumbers.TryGetNameByNumber(switchNumber, out var switchName)
-                        && _mpfCoilNumbers.TryGetNameByNumber(coilNumber, out coilName)
-                    )
-                        _player.AddHardwareRule(switchName, coilName);
-                    else
-                        Logger.Error(
-                            $"MPF wants to add a hardware rule for switch number "
-                                + $"'{switchNumber} and coil number '{coilNumber}.' At least one "
-                                + $"of them is not associated with an id."
-                        );
-                    break;
-                case Commands.CommandOneofCase.RemoveHardwareRule:
-                    switchNumber = command.RemoveHardwareRule.SwitchNumber;
-                    coilNumber = command.RemoveHardwareRule.CoilNumber;
-                    if (
-                        _mpfSwitchNumbers.TryGetNameByNumber(switchNumber, out switchName)
-                        && _mpfCoilNumbers.TryGetNameByNumber(coilNumber, out coilName)
-                    )
-                        _player.RemoveHardwareRule(switchName, coilName);
-                    else
-                        Logger.Error(
-                            $"MPF wants to remove a hardware rule for switch number "
-                                + $"'{switchNumber} and coil number '{coilNumber}.' At least one "
-                                + $"of them is not associated with an id."
-                        );
-                    break;
-                case Commands.CommandOneofCase.DmdFrameRequest:
-                    var frameData = new DisplayFrameData(
-                        command.DmdFrameRequest.Name,
-                        DisplayFrameFormat.Dmd24,
-                        command.DmdFrameRequest.Frame.ToByteArray()
-                    );
-                    OnDisplayUpdateFrame?.Invoke(this, frameData);
-                    break;
-                case Commands.CommandOneofCase.SegmentDisplayFrameRequest:
-                    Logger.Error("Segment displays are not yet supported by VPEs MPF integration");
-                    break;
-                default:
-                    Logger.Error($"MPF sent an unknown commnand '{command}'");
-                    break;
-            }
+            await _mpfWrangler.StopMpf();
+            _mpfWrangler.MpfFadeLightRequestReceived -= ExecuteMpfFadeLightRequest;
+            _mpfWrangler.MpfPulseCoilRequestReceived -= ExecuteMpfPulseCoilRequest;
+            _mpfWrangler.MpfEnableCoilRequestReceived -= ExecuteMpfEnableCoilRequest;
+            _mpfWrangler.MpfDisableCoilRequestReceived -= ExecuteMpfCommandDisableCoilRequest;
+            _mpfWrangler.MpfConfigureHardwareRuleRequestReceived -=
+                ExecuteMpfConfigureHardwareRuleRequest;
+            _mpfWrangler.MpfRemoveHardwareRuleRequestReceived -=
+                ExecuteMpfRemoveHardwareRuleRequest;
+            _mpfWrangler.MpfSetDmdFrameRequestReceived -= ExecuteMpfSetDmdFrameRequest;
+            _mpfWrangler.MpfSetSegmentDisplayFrameRequestReceived -=
+                ExecuteMpfSetSegmentDisplayFrameRequest;
         }
 
         public void DisplayChanged(DisplayFrameData displayFrameData) { }
@@ -587,7 +212,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             if (_mpfSwitchNumbers.ContainsName(id))
             {
-                if (MpfState == MpfState.Running)
+                if (_mpfWrangler.MpfState == MpfState.Connected)
                 {
                     var number = _mpfSwitchNumbers.GetNumberByName(id);
                     var change = new SwitchChanges
@@ -595,10 +220,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                         SwitchNumber = number,
                         SwitchState = isClosed,
                     };
-                    await _mpfSwitchStreamCall.RequestStream.WriteAsync(
-                        change,
-                        _mpfCommunicationCts.Token
-                    );
+                    await _mpfWrangler.SendSwitchChange(change);
                 }
                 else
                 {
@@ -614,6 +236,154 @@ namespace VisualPinball.Engine.Mpf.Unity
                         + $" associated with an MPF number. State change cannot be forwarded to MPF."
                 );
             }
+        }
+
+        private bool DoesMachineDescriptionMatch(MachineDescription md)
+        {
+            return _requestedSwitches.All(
+                    (gleSw) => md.Switches.Any((mpfSw) => MpfExtensions.Equals(gleSw, mpfSw))
+                )
+                && _requestedCoils.All(
+                    (gleCoil) => md.Coils.Any((mpfCoil) => MpfExtensions.Equals(gleCoil, mpfCoil))
+                )
+                && _requestedLamps.All(
+                    (gleLamp) =>
+                        md.Lights.Any((mpfLight) => MpfExtensions.Equals(gleLamp, mpfLight))
+                )
+                && _mpfDotMatrixDisplays.All(
+                    (displayCfg) =>
+                        md.Dmds.Any((mpfDmd) => MpfExtensions.Equals(displayCfg, mpfDmd))
+                )
+                && _mpfSwitchNumbers.Equals(md.GetSwitchNumbersByNameDict())
+                && _mpfCoilNumbers.Equals(md.GetCoilNumbersByNameDict())
+                && _mpfLampNumbers.Equals(md.GetLampNumbersByNameDict());
+        }
+
+        private MachineState CompileMachineState(Player player)
+        {
+            var initialState = new MachineState();
+            foreach (var switchName in player.SwitchStatuses.Keys)
+            {
+                if (_mpfSwitchNumbers.TryGetNumberByName(switchName, out var number))
+                {
+                    var isClosed = player.SwitchStatuses[switchName].IsSwitchClosed;
+                    initialState.InitialSwitchStates.Add(number, isClosed);
+                }
+            }
+            return initialState;
+        }
+
+        private void ExecuteMpfFadeLightRequest(object sender, FadeLightRequest request)
+        {
+            var args = new List<LampEventArgs>();
+            foreach (var fade in request.Fades)
+            {
+                if (_mpfLampNumbers.TryGetNameByNumber(fade.LightNumber, out var lampName))
+                    args.Add(new LampEventArgs(lampName, fade.TargetBrightness));
+                else
+                    Logger.Error(
+                        $"MPF sent a lamp number '{fade.LightNumber}' that is"
+                            + $" not associated with a lamp id."
+                    );
+            }
+            OnLampsChanged?.Invoke(this, new LampsEventArgs(args.ToArray()));
+        }
+
+        private void ExecuteMpfPulseCoilRequest(object sender, PulseCoilRequest request)
+        {
+            if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
+            {
+                SetCoil(coilName, true);
+                _player.ScheduleAction(request.PulseMs, () => SetCoil(coilName, false));
+            }
+            else
+                Logger.Error(
+                    $"MPF sent a coil number '{request.CoilNumber}'"
+                        + $" that is not associated with a coil id."
+                );
+        }
+
+        private void ExecuteMpfEnableCoilRequest(object sender, EnableCoilRequest request)
+        {
+            if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
+                SetCoil(coilName, true);
+            else
+                Logger.Error(
+                    $"MPF sent a coil number '{request.CoilNumber}'"
+                        + $" that is not associated with a coil id."
+                );
+        }
+
+        private void ExecuteMpfCommandDisableCoilRequest(object sender, DisableCoilRequest request)
+        {
+            if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
+                SetCoil(coilName, false);
+            else
+                Logger.Error(
+                    $"MPF sent a coil number '{request.CoilNumber}'"
+                        + $" that is not associated with a coil id."
+                );
+        }
+
+        private void ExecuteMpfConfigureHardwareRuleRequest(
+            object sender,
+            ConfigureHardwareRuleRequest request
+        )
+        {
+            var switchNumber = request.SwitchNumber;
+            var coilNumber = request.CoilNumber;
+            if (
+                _mpfSwitchNumbers.TryGetNameByNumber(switchNumber, out var switchName)
+                && _mpfCoilNumbers.TryGetNameByNumber(coilNumber, out var coilName)
+            )
+                _player.AddHardwareRule(switchName, coilName);
+            else
+                Logger.Error(
+                    $"MPF wants to add a hardware rule for switch number "
+                        + $"'{switchNumber} and coil number '{coilNumber}.' At least one "
+                        + $"of them is not associated with an id."
+                );
+        }
+
+        private void ExecuteMpfRemoveHardwareRuleRequest(
+            object sender,
+            RemoveHardwareRuleRequest request
+        )
+        {
+            var switchNumber = request.SwitchNumber;
+            var coilNumber = request.CoilNumber;
+            if (
+                _mpfSwitchNumbers.TryGetNameByNumber(switchNumber, out var switchName)
+                && _mpfCoilNumbers.TryGetNameByNumber(coilNumber, out var coilName)
+            )
+                _player.RemoveHardwareRule(switchName, coilName);
+            else
+                Logger.Error(
+                    $"MPF wants to remove a hardware rule for switch number "
+                        + $"'{switchNumber} and coil number '{coilNumber}.' At least one "
+                        + $"of them is not associated with an id."
+                );
+        }
+
+        private void ExecuteMpfSetDmdFrameRequest(object sender, SetDmdFrameRequest request)
+        {
+            var frameData = new DisplayFrameData(
+                request.Name,
+                DisplayFrameFormat.Dmd24,
+                request.Frame.ToByteArray()
+            );
+            OnDisplayUpdateFrame?.Invoke(this, frameData);
+        }
+
+        private void ExecuteMpfSetSegmentDisplayFrameRequest(
+            object sender,
+            SetSegmentDisplayFrameRequest request
+        )
+        {
+            Logger.Error(
+                "MPF sent a segment display frame, but segment displays are not yet supported by "
+                    + "VPEs MPF integration."
+            );
         }
     }
 }

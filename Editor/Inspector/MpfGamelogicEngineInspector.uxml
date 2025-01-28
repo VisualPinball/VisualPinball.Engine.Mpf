@@ -1,16 +1,16 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
     <Style src="project://database/Packages/org.visualpinball.engine.missionpinball/Editor/Inspector/Styles/GroupBoxLabel.uss?fileID=7433441132597879392&amp;guid=32163019b734fa94dafc96ec9304b7ec&amp;type=3#GroupBoxLabel" />
     <Style src="project://database/Packages/org.visualpinball.engine.missionpinball/Editor/Inspector/Styles/GroupBox.uss?fileID=7433441132597879392&amp;guid=251f815130cb3b74c8a2df32eb5a0525&amp;type=3#GroupBox" />
-    <ui:TextField picking-mode="Ignore" label="MPF State" readonly="true" name="mpf-state" class="unity-base-field__aligned" />
+    <ui:TextField picking-mode="Ignore" label="MPF State" readonly="true" name="mpf-state" binding-path="_mpfWrangler._mpfState" class="unity-base-field__aligned" />
     <ui:GroupBox name="options" text="Options">
-        <uie:PropertyField name="executable-source" binding-path="_mpfStarter._executableSource" label="Executable Source" focusable="true" tooltip="You can opt not to use the version of MPF that comes with VPE and install your own instead." />
-        <ui:TextField picking-mode="Ignore" label="Machine Folder" name="machine-folder" readonly="true" binding-path="_mpfStarter._machineFolder" class="unity-base-field__aligned" />
-        <uie:PropertyField name="media-controller" binding-path="_mpfStarter._mediaController" label="Media Controller" focusable="true" />
-        <uie:PropertyField name="output-type" binding-path="_mpfStarter._outputType" label="Output Type" focusable="true" />
-        <uie:PropertyField name="verbose-logging" binding-path="_mpfStarter._verboseLogging" label="Verbose Logging" focusable="true" />
-        <uie:PropertyField name="cache-config-files" binding-path="_mpfStarter._cacheConfigFiles" label="Cache Config Files" focusable="true" />
-        <uie:PropertyField name="force-reload-config" binding-path="_mpfStarter._forceReloadConfig" label="Force Reload Config" focusable="true" />
-        <uie:PropertyField name="force-load-all-assets-on-start" binding-path="_mpfStarter._forceLoadAllAssetsOnStart" label="Force Load All Assets On Start" focusable="true" />
+        <uie:PropertyField name="executable-source" binding-path="_mpfWrangler._executableSource" label="Executable Source" focusable="true" tooltip="You can opt not to use the version of MPF that comes with VPE and install your own instead." />
+        <ui:TextField picking-mode="Ignore" label="Machine Folder" name="machine-folder" readonly="true" binding-path="_mpfWrangler._machineFolder" class="unity-base-field__aligned" />
+        <uie:PropertyField name="media-controller" binding-path="_mpfWrangler._mediaController" label="Media Controller" focusable="true" />
+        <uie:PropertyField name="output-type" binding-path="_mpfWrangler._outputType" label="Output Type" focusable="true" />
+        <uie:PropertyField name="verbose-logging" binding-path="_mpfWrangler._verboseLogging" label="Verbose Logging" focusable="true" />
+        <uie:PropertyField name="cache-config-files" binding-path="_mpfWrangler._cacheConfigFiles" label="Cache Config Files" focusable="true" />
+        <uie:PropertyField name="force-reload-config" binding-path="_mpfWrangler._forceReloadConfig" label="Force Reload Config" focusable="true" />
+        <uie:PropertyField name="force-load-all-assets-on-start" binding-path="_mpfWrangler._forceLoadAllAssetsOnStart" label="Force Load All Assets On Start" focusable="true" />
     </ui:GroupBox>
     <ui:GroupBox text="Machine Description" name="machine-description">
         <ui:Foldout text="Switches" name="switches" focusable="true" />
