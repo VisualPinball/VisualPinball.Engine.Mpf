@@ -43,10 +43,6 @@ namespace VisualPinball.Engine.Mpf.Unity
     };
 
     [Serializable]
-    // It would be stylistically better to make this a struct with a constructor that has default
-    // parameters and private fields with the [UnityEngine.SerializeField] attribute, but this is
-    // the only way to get the Unity editor to respect the default values of the fields when
-    // adding a component with a field of this type to a game object.
     public class MpfStarter
     {
         [SerializeField]
@@ -72,7 +68,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         [SerializeField]
         private bool _forceLoadAllAssetsOnStart = false;
-        public static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public string MachineFolder
         {
@@ -92,7 +89,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         // This is a factory method instead of a constructor because otherwise Unity will not
         // respect the default field values defined above when a new instance of the
-        // MpfGameLogicEngine is created in the inspector
+        // MpfGamelogicEngine is created in the inspector
         public static MpfStarter Create(
             MpfExecutableSource executableSource = MpfExecutableSource.Included,
             MpfMediaController mediaController = MpfMediaController.None,
