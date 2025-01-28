@@ -4,6 +4,9 @@
     <ui:TextField picking-mode="Ignore" label="MPF State" readonly="true" name="mpf-state" binding-path="_mpfWrangler._mpfState" class="unity-base-field__aligned" />
     <ui:GroupBox name="options" text="Options">
         <uie:PropertyField name="executable-source" binding-path="_mpfWrangler._executableSource" label="Executable Source" focusable="true" tooltip="You can opt not to use the version of MPF that comes with VPE and install your own instead." />
+        <uie:PropertyField name="startup-behavior" binding-path="_mpfWrangler._startupBehavior" label="Startup Behavior" focusable="true" tooltip="MPF needs some time to start up, so VPE needs some way to tell when it is ready.&apos;Ping Until Ready&apos; repeatedely pings MPF until it responds. This is the preferred  method, but it is only compatible with the version of MPF included with VPE. &apos;Delay Connection&apos; is more compatible, but can waste time on fast computers and fail on slow ones. " class="unity-base-field__aligned" />
+        <uie:PropertyField name="connect-timeout" label="Connect Timeout" binding-path="_mpfWrangler._connectTimeout" focusable="true" tooltip="How many seconds to wait for MPF before giving up, causing an error." />
+        <uie:PropertyField name="connect-delay" binding-path="_mpfWrangler._connectDelay" label="Connect Delay" focusable="true" tooltip="How many seconds to wait before attempting to connect to MPF. Will fail if MPF is slower than this." />
         <ui:TextField picking-mode="Ignore" label="Machine Folder" name="machine-folder" readonly="true" binding-path="_mpfWrangler._machineFolder" class="unity-base-field__aligned" />
         <uie:PropertyField name="media-controller" binding-path="_mpfWrangler._mediaController" label="Media Controller" focusable="true" />
         <uie:PropertyField name="output-type" binding-path="_mpfWrangler._outputType" label="Output Type" focusable="true" />

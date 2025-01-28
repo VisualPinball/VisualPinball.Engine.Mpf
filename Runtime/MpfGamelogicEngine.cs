@@ -33,15 +33,15 @@ namespace VisualPinball.Engine.Mpf.Unity
         private MpfWrangler _mpfWrangler;
 
         [SerializeField]
-        public SerializedGamelogicEngineSwitch[] _requestedSwitches =
+        private SerializedGamelogicEngineSwitch[] _requestedSwitches =
             Array.Empty<SerializedGamelogicEngineSwitch>();
 
         [SerializeField]
-        public SerializedGamelogicEngineLamp[] _requestedLamps =
+        private SerializedGamelogicEngineLamp[] _requestedLamps =
             Array.Empty<SerializedGamelogicEngineLamp>();
 
         [SerializeField]
-        public SerializedGamelogicEngineCoil[] _requestedCoils =
+        private SerializedGamelogicEngineCoil[] _requestedCoils =
             Array.Empty<SerializedGamelogicEngineCoil>();
 
         [SerializeField]

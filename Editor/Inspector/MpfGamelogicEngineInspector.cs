@@ -17,6 +17,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Grpc.Core;
+using Mono.Cecil;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -34,6 +35,8 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
         private CancellationTokenSource _getMachineDescCts;
         private MpfGamelogicEngine _mpfEngine;
         private TextField _mpfStateField;
+        private PropertyField _connectTimeoutField;
+        private PropertyField _connectDelayField;
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -143,9 +146,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 }
             };
 
-            var switchesProp = serializedObject.FindProperty(
-                nameof(MpfGamelogicEngine._requestedSwitches)
-            );
+            var switchesProp = serializedObject.FindProperty("_requestedSwitches");
             var switchFoldout = root.Q<Foldout>("switches");
             UpdateSwitchList(_mpfEngine, switchFoldout);
             switchFoldout.TrackPropertyValue(
@@ -153,9 +154,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 (prop) => UpdateSwitchList(_mpfEngine, switchFoldout)
             );
 
-            var coilsProp = serializedObject.FindProperty(
-                nameof(MpfGamelogicEngine._requestedCoils)
-            );
+            var coilsProp = serializedObject.FindProperty("_requestedCoils");
             var coilFoldout = root.Q<Foldout>("coils");
             UpdateCoilList(_mpfEngine, coilFoldout);
             coilFoldout.TrackPropertyValue(
@@ -163,9 +162,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 (prop) => UpdateCoilList(_mpfEngine, coilFoldout)
             );
 
-            var lampsProp = serializedObject.FindProperty(
-                nameof(MpfGamelogicEngine._requestedLamps)
-            );
+            var lampsProp = serializedObject.FindProperty("_requestedLamps");
             var lampsFoldout = root.Q<Foldout>("lamps");
             UpdateLampList(_mpfEngine, lampsFoldout);
             lampsFoldout.TrackPropertyValue(
@@ -177,6 +174,14 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 }
             );
 
+            var startupBehaviorField = root.Q<PropertyField>("startup-behavior");
+            var startupBehaviorProp = serializedObject.FindProperty(
+                "_mpfWrangler._startupBehavior"
+            );
+            _connectTimeoutField = root.Q<PropertyField>("connect-timeout");
+            _connectDelayField = root.Q<PropertyField>("connect-delay");
+            UpdateStartBehaviorFields(startupBehaviorProp);
+            startupBehaviorField.TrackPropertyValue(startupBehaviorProp, UpdateStartBehaviorFields);
             return root;
         }
 
@@ -185,6 +190,21 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             _getMachineDescCts?.Cancel();
             _getMachineDescCts?.Dispose();
             _getMachineDescCts = null;
+        }
+
+        private void UpdateStartBehaviorFields(SerializedProperty startupBehaviorProp)
+        {
+            switch ((MpfStartupBehavior)startupBehaviorProp.intValue)
+            {
+                case MpfStartupBehavior.PingUntilReady:
+                    _connectTimeoutField.style.display = DisplayStyle.Flex;
+                    _connectDelayField.style.display = DisplayStyle.None;
+                    break;
+                case MpfStartupBehavior.DelayConnection:
+                    _connectTimeoutField.style.display = DisplayStyle.None;
+                    _connectDelayField.style.display = DisplayStyle.Flex;
+                    break;
+            }
         }
 
         private void UpdateSwitchList(MpfGamelogicEngine mpfEngine, VisualElement parent)

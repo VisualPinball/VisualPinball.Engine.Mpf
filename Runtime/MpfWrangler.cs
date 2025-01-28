@@ -48,6 +48,12 @@ namespace VisualPinball.Engine.Mpf.Unity
         ManuallyInstalled,
     };
 
+    public enum MpfStartupBehavior
+    {
+        PingUntilReady,
+        DelayConnection,
+    }
+
     public enum MpfState
     {
         NotConnected,
@@ -88,6 +94,9 @@ namespace VisualPinball.Engine.Mpf.Unity
         private MpfExecutableSource _executableSource = MpfExecutableSource.Included;
 
         [SerializeField]
+        private MpfStartupBehavior _startupBehavior = MpfStartupBehavior.PingUntilReady;
+
+        [SerializeField]
         private MpfMediaController _mediaController = MpfMediaController.None;
 
         [SerializeField]
@@ -109,7 +118,12 @@ namespace VisualPinball.Engine.Mpf.Unity
         private bool _forceLoadAllAssetsOnStart = false;
 
         [SerializeField]
-        private float _connectTimeout = 20f;
+        [Range(3, 30)]
+        private float _connectTimeout = 10f;
+
+        [SerializeField]
+        [Range(0, 15)]
+        private float _connectDelay = 3f;
 
         private Process _mpfProcess;
         private GrpcChannel _grpcChannel;
@@ -490,6 +504,27 @@ namespace VisualPinball.Engine.Mpf.Unity
             return sb.ToString();
         }
 
+        private async Task WaitUntilMpfReady(GrpcChannel channel, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            // The 'Ping' RPC was added to the VPE-MPF interface definition in January 2025. As of
+            // January 28th 2025, it is only available in a fork
+            // (https://github.com/arthurkehrwald/mpf/tree/0.80.x) of MPF and the binaries included
+            // with VPE. For compatibility with official versions of MPF, connection can simply be
+            // delayed by a few seconds, but this can fail if MPF is slow to start up and wastes
+            // time if MPF starts up more quickly than expected.
+            switch (_startupBehavior)
+            {
+                case MpfStartupBehavior.PingUntilReady:
+                    await PingUntilResponseOrTimeout(channel, ct);
+                    break;
+                case MpfStartupBehavior.DelayConnection:
+                    await Task.Delay(TimeSpan.FromSeconds(_connectDelay));
+                    break;
+            }
+        }
+
         // This method repeatedly pings MPF until it responds or time runs out. Ideally,
         // you would use gRPC's wait-for-ready feature instead, but that is not supported in
         // .netstandard 2.1, which is mandated by Unity. Links:
@@ -498,12 +533,11 @@ namespace VisualPinball.Engine.Mpf.Unity
         // https://github.com/grpc/grpc-dotnet/blob/c9d26719e8b2a8f03424cacbb168540e35a94b0b/src/Grpc.Net.Client/Grpc.Net.Client.csproj#L21C1-L23C19
         // Alternatively, you could use the channel status, but that is also not supported:
         // https://github.com/grpc/grpc-dotnet/issues/1275
-        // Previously, the problem was 'solved' by simply waiting 1.5 seconds to give MPF
-        // time to start up, but depending on the computer and whether or not compressed one-file
-        // (pyinstaller) binaries are used, this is not always enough.
-        private async Task WaitUntilMpfReady(GrpcChannel channel, CancellationToken ct)
+        private async Task<PingResponse> PingUntilResponseOrTimeout(
+            GrpcChannel channel,
+            CancellationToken ct
+        )
         {
-            ct.ThrowIfCancellationRequested();
             Logger.Info("Attempting to connect to MPF...");
             var startTime = DateTime.Now;
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -524,7 +558,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                     $"Successfully connected to MPF in {timeToConnect:F2} seconds. "
                         + $"MPF version: {pingResponse.MpfVersion}"
                 );
-                return;
+                return pingResponse;
             }
 
             await timeoutTask;
@@ -557,9 +591,12 @@ namespace VisualPinball.Engine.Mpf.Unity
                     );
                     return response;
                 }
-                catch (Exception ex) when (ex is IOException or RpcException) { }
-                ct.ThrowIfCancellationRequested();
-                Logger.Info("No response from MPF. Retrying...");
+                catch (Exception ex) when (ex is IOException or RpcException)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Logger.Info("No response from MPF. Retrying...");
+                    await Task.Delay(TimeSpan.FromSeconds(0.2));
+                }
             }
         }
 
