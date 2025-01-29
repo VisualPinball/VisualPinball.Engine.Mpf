@@ -234,7 +234,10 @@ namespace VisualPinball.Engine.Mpf.Unity
             MpfState = MpfState.Connected;
         }
 
-        public async Task<MachineDescription> GetMachineDescription(CancellationToken ct)
+        public async Task<MachineDescription> GetMachineDescription(
+            float timeout,
+            CancellationToken ct
+        )
         {
             ct.ThrowIfCancellationRequested();
             if (MpfState != MpfState.Connected)
@@ -245,7 +248,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
             return await client.GetMachineDescriptionAsync(
                 new EmptyRequest(),
-                deadline: DateTime.UtcNow.AddSeconds(1),
+                deadline: DateTime.UtcNow.AddSeconds(timeout),
                 cancellationToken: ct
             );
         }

@@ -106,7 +106,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                 var initialState = new MachineState();
 
                 await _mpfWrangler.StartMpf(initialState, ct);
-                var machineDescription = await _mpfWrangler.GetMachineDescription(ct);
+                var machineDescription = await _mpfWrangler.GetMachineDescription(timeout: 3f, ct);
                 await _mpfWrangler.StopMpf();
 
                 ct.ThrowIfCancellationRequested();
@@ -155,9 +155,11 @@ namespace VisualPinball.Engine.Mpf.Unity
             OnDisplaysRequested?.Invoke(this, new RequestedDisplays(_mpfDotMatrixDisplays));
             OnStarted?.Invoke(this, EventArgs.Empty);
 
-            var md = await _mpfWrangler.GetMachineDescription(ct);
+            var md = await _mpfWrangler.GetMachineDescription(timeout: 3f, ct);
             if (!DoesMachineDescriptionMatch(md))
                 Logger.Warn("Mismatch between MPF's and VPE's machine description detected.");
+            else
+                Logger.Info("MPF's machine description matches VPE's machine description.");
         }
 
         private async void OnDestroy()
