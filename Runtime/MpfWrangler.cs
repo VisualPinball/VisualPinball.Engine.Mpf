@@ -222,7 +222,9 @@ namespace VisualPinball.Engine.Mpf.Unity
             }
             catch (Exception ex)
             {
-                _mpfProcess?.Kill();
+                if (_mpfProcess != null && !_mpfProcess.HasExited)
+                    _mpfProcess.Kill();
+
                 _mpfProcess?.Dispose();
                 _mpfProcess = null;
                 MpfState = MpfState.NotConnected;
@@ -306,7 +308,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                             ) != processExited.Task
                             && !_mpfProcess.HasExited
                         )
-                            _mpfProcess?.Kill();
+                            _mpfProcess.Kill();
                     }
 
                     _receiveMpfCommandsTask = null;
@@ -344,7 +346,8 @@ namespace VisualPinball.Engine.Mpf.Unity
             {
                 // On Linux and macOS, start the process through the terminal so it has a window.
 #if UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-                process.StartInfo.Arguments = $"-e {process.StartInfo.FileName} {process.StartInfo.Arguments}";
+                process.StartInfo.Arguments =
+                    $"-e {process.StartInfo.FileName} {process.StartInfo.Arguments}";
                 process.StartInfo.FileName = "x-terminal-emulator";
 #elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
                 // There is no way to pass arguments trough the macOS terminal,
@@ -353,7 +356,10 @@ namespace VisualPinball.Engine.Mpf.Unity
                 // Very convoluted but there is no better way as far as Stackoverflow knows:
                 // https://stackoverflow.com/questions/29510815/how-to-pass-command-line-arguments-to-a-program-run-with-the-open-command
                 string tmpScriptPath = Path.Combine(Application.temporaryCachePath, "mpf.sh");
-                File.WriteAllText(tmpScriptPath, $"#!/bin/bash\n{process.StartInfo.FileName} {process.StartInfo.Arguments}");
+                File.WriteAllText(
+                    tmpScriptPath,
+                    $"#!/bin/bash\n{process.StartInfo.FileName} {process.StartInfo.Arguments}"
+                );
                 Process.Start("chmod", $"u+x {tmpScriptPath}");
                 process.StartInfo.Arguments = $"-a Terminal {tmpScriptPath}";
                 process.StartInfo.FileName = "open";
