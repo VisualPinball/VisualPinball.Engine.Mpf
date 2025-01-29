@@ -344,7 +344,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             {
                 // On Linux and macOS, start the process through the terminal so it has a window.
 #if UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-                process.StartInfo.Aguments = $"-e {process.StartInfo.FileName} {args}";
+                process.StartInfo.Arguments = $"-e {process.StartInfo.FileName} {process.StartInfo.Arguments}";
                 process.StartInfo.FileName = "x-terminal-emulator";
 #elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
                 // There is no way to pass arguments trough the macOS terminal,
@@ -450,11 +450,11 @@ namespace VisualPinball.Engine.Mpf.Unity
                     var dir = Constants.MpfBinaryDirWindows;
                     var name = Constants.MpfBinaryNameWindows;
 #elif UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-                    var dir Constants.MpfBinaryDirLinux;
-                    var name = Constants.MpfBinaryNameLinux
+                    var dir = Constants.MpfBinaryDirLinux;
+                    var name = Constants.MpfBinaryNameLinux;
 #elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
                     var dir = Constants.MpfBinaryDirMacOS;
-                    var name = Constants.MpfBinaryNameMacOS
+                    var name = Constants.MpfBinaryNameMacOS;
 #else
                     goto case ExecutableSource.ManuallyInstalled;
 #endif
