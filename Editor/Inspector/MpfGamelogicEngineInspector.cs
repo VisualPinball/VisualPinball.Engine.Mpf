@@ -34,9 +34,9 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
         private CancellationTokenSource _getMachineDescCts;
         private MpfGamelogicEngine _mpfEngine;
-        private TextField _mpfStateField;
         private PropertyField _connectTimeoutField;
         private PropertyField _connectDelayField;
+        private VisualElement _commandLineOptionsContainer;
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -180,8 +180,19 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             );
             _connectTimeoutField = root.Q<PropertyField>("connect-timeout");
             _connectDelayField = root.Q<PropertyField>("connect-delay");
-            UpdateStartBehaviorFields(startupBehaviorProp);
-            startupBehaviorField.TrackPropertyValue(startupBehaviorProp, UpdateStartBehaviorFields);
+            OnStartupBehaviorChanged(startupBehaviorProp);
+            startupBehaviorField.TrackPropertyValue(startupBehaviorProp, OnStartupBehaviorChanged);
+
+            // Grey out command line options if VPE does not launch MPF itself
+            _commandLineOptionsContainer = root.Q<VisualElement>("command-line-options");
+            var executableSourceProp = serializedObject.FindProperty(
+                "_mpfWrangler._executableSource"
+            );
+            OnExecutableSourceChanged(executableSourceProp);
+            _commandLineOptionsContainer.TrackPropertyValue(
+                executableSourceProp,
+                OnExecutableSourceChanged
+            );
             return root;
         }
 
@@ -192,7 +203,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             _getMachineDescCts = null;
         }
 
-        private void UpdateStartBehaviorFields(SerializedProperty startupBehaviorProp)
+        private void OnStartupBehaviorChanged(SerializedProperty startupBehaviorProp)
         {
             switch ((MpfStartupBehavior)startupBehaviorProp.intValue)
             {
@@ -205,6 +216,13 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                     _connectDelayField.style.display = DisplayStyle.Flex;
                     break;
             }
+        }
+
+        private void OnExecutableSourceChanged(SerializedProperty executableSourceProp)
+        {
+            var source = (MpfExecutableSource)executableSourceProp.intValue;
+            bool willLaunchMpf = source != MpfExecutableSource.AssumeRunning;
+            _commandLineOptionsContainer.SetEnabled(willLaunchMpf);
         }
 
         private void UpdateSwitchList(MpfGamelogicEngine mpfEngine, VisualElement parent)

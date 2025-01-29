@@ -46,6 +46,7 @@ namespace VisualPinball.Engine.Mpf.Unity
     {
         Included,
         ManuallyInstalled,
+        AssumeRunning,
     };
 
     public enum MpfStartupBehavior
@@ -211,7 +212,9 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             ct.ThrowIfCancellationRequested();
             MpfState = MpfState.Starting;
-            _mpfProcess = StartMpfProcess();
+
+            if (_executableSource != MpfExecutableSource.AssumeRunning)
+                _mpfProcess = StartMpfProcess();
 
             try
             {
@@ -462,6 +465,11 @@ namespace VisualPinball.Engine.Mpf.Unity
 
                 case MpfExecutableSource.ManuallyInstalled:
                     return "mpf";
+                case MpfExecutableSource.AssumeRunning:
+                    throw new InvalidOperationException(
+                        $"Executable source is set to '{MpfExecutableSource.AssumeRunning},' so "
+                            + "there is no need to start any executable."
+                    );
                 default:
                     throw new NotImplementedException(
                         $"Cannot get path for unknown MPF executable source '{_executableSource}'"
