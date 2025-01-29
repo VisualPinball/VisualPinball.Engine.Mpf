@@ -37,6 +37,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
         private PropertyField _connectTimeoutField;
         private PropertyField _connectDelayField;
         private VisualElement _commandLineOptionsContainer;
+        private VisualElement _startupBehaviorOptionsContainer;
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -185,6 +186,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
             // Grey out command line options if VPE does not launch MPF itself
             _commandLineOptionsContainer = root.Q<VisualElement>("command-line-options");
+            _startupBehaviorOptionsContainer = root.Q<VisualElement>("startup-behavior-options");
             var executableSourceProp = serializedObject.FindProperty(
                 "_mpfWrangler._executableSource"
             );
@@ -223,6 +225,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             var source = (MpfExecutableSource)executableSourceProp.intValue;
             bool willLaunchMpf = source != MpfExecutableSource.AssumeRunning;
             _commandLineOptionsContainer.SetEnabled(willLaunchMpf);
+            _startupBehaviorOptionsContainer.SetEnabled(willLaunchMpf);
         }
 
         private void UpdateSwitchList(MpfGamelogicEngine mpfEngine, VisualElement parent)

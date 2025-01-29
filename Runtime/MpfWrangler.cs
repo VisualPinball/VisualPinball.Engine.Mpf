@@ -409,22 +409,25 @@ namespace VisualPinball.Engine.Mpf.Unity
             };
             _grpcChannel = GrpcChannel.ForAddress(_grpcAddress, options);
             _mpfCommunicationCts = new CancellationTokenSource();
-            using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(
-                ct,
-                _mpfCommunicationCts.Token
-            );
 
-            try
+            if (_executableSource != MpfExecutableSource.AssumeRunning)
             {
-                await WaitUntilMpfReady(_grpcChannel, waitCts.Token);
-            }
-            catch (Exception ex)
-            {
-                _mpfCommunicationCts?.Dispose();
-                _mpfCommunicationCts = null;
-                _grpcChannel?.Dispose();
-                _grpcChannel = null;
-                throw ex;
+                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(
+                    ct,
+                    _mpfCommunicationCts.Token
+                );
+                try
+                {
+                    await WaitUntilMpfReady(_grpcChannel, waitCts.Token);
+                }
+                catch (Exception ex)
+                {
+                    _mpfCommunicationCts?.Dispose();
+                    _mpfCommunicationCts = null;
+                    _grpcChannel?.Dispose();
+                    _grpcChannel = null;
+                    throw ex;
+                }
             }
 
             var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
