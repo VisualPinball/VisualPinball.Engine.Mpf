@@ -211,19 +211,23 @@ namespace VisualPinball.Engine.Mpf.Unity
                 );
 
             ct.ThrowIfCancellationRequested();
-            MpfState = MpfState.Starting;
-
-            if (_executableSource != MpfExecutableSource.AssumeRunning)
-                _mpfProcess = StartMpfProcess();
 
             try
             {
+                MpfState = MpfState.Starting;
+                KillAllMpfProcesses();
+
+                if (_executableSource != MpfExecutableSource.AssumeRunning)
+                    _mpfProcess = StartMpfProcess();
+
                 await ConnectToMpf(initialState, ct);
             }
             catch (Exception ex)
             {
                 if (_mpfProcess != null && !_mpfProcess.HasExited)
                     _mpfProcess.Kill();
+
+                KillAllMpfProcesses();
 
                 _mpfProcess?.Dispose();
                 _mpfProcess = null;
@@ -286,47 +290,61 @@ namespace VisualPinball.Engine.Mpf.Unity
                             deadline: DateTime.UtcNow.AddSeconds(1)
                         );
                     }
-                    catch (RpcException ex)
+                    finally
                     {
-                        Logger.Error($"Failed to send quit message to MPF: {ex}");
+                        try
+                        {
+                            _mpfCommunicationCts?.Cancel();
+                            if (_receiveMpfCommandsTask != null)
+                                await _receiveMpfCommandsTask;
+                        }
+                        finally
+                        {
+                            try
+                            {
+                                if (_mpfProcess != null && !_mpfProcess.HasExited)
+                                {
+                                    // MPF should shut down on its own after receiving the Quit
+                                    // message. If it is still running after one second, just kill
+                                    // it.
+                                    var processExited = new TaskCompletionSource<bool>();
+                                    _mpfProcess.Exited += new EventHandler(
+                                        (sender, args) => processExited.TrySetResult(true)
+                                    );
+
+                                    if (
+                                        await Task.WhenAny(
+                                            processExited.Task,
+                                            Task.Delay(TimeSpan.FromSeconds(1))
+                                        ) != processExited.Task
+                                        && !_mpfProcess.HasExited
+                                    )
+                                        _mpfProcess.Kill();
+                                }
+                                else
+                                {
+                                    await Task.Delay(TimeSpan.FromSeconds(1));
+                                    KillAllMpfProcesses();
+                                }
+                            }
+                            finally
+                            {
+                                _receiveMpfCommandsTask = null;
+                                _mpfCommunicationCts?.Dispose();
+                                _mpfCommunicationCts = null;
+                                _mpfCommandStreamCall?.Dispose();
+                                _mpfCommandStreamCall = null;
+                                _mpfSwitchStreamCall?.Dispose();
+                                _mpfSwitchStreamCall = null;
+                                _grpcChannel?.Dispose();
+                                _grpcChannel = null;
+                                _mpfProcess?.Dispose();
+                                _mpfProcess = null;
+
+                                MpfState = MpfState.NotConnected;
+                            }
+                        }
                     }
-
-                    _mpfCommunicationCts?.Cancel();
-                    if (_receiveMpfCommandsTask != null)
-                        await _receiveMpfCommandsTask;
-
-                    if (_mpfProcess != null && !_mpfProcess.HasExited)
-                    {
-                        // MPF should shut down on its own after receiving the Quit message.
-                        // If it is still running after one second, just kill it.
-                        var processExited = new TaskCompletionSource<bool>();
-                        _mpfProcess.Exited += new EventHandler(
-                            (sender, args) => processExited.TrySetResult(true)
-                        );
-
-                        if (
-                            await Task.WhenAny(
-                                processExited.Task,
-                                Task.Delay(TimeSpan.FromSeconds(1))
-                            ) != processExited.Task
-                            && !_mpfProcess.HasExited
-                        )
-                            _mpfProcess.Kill();
-                    }
-
-                    _receiveMpfCommandsTask = null;
-                    _mpfCommunicationCts?.Dispose();
-                    _mpfCommunicationCts = null;
-                    _mpfCommandStreamCall?.Dispose();
-                    _mpfCommandStreamCall = null;
-                    _mpfSwitchStreamCall?.Dispose();
-                    _mpfSwitchStreamCall = null;
-                    _grpcChannel?.Dispose();
-                    _grpcChannel = null;
-                    _mpfProcess?.Dispose();
-                    _mpfProcess = null;
-
-                    MpfState = MpfState.NotConnected;
                     return;
             }
         }
@@ -682,6 +700,24 @@ namespace VisualPinball.Engine.Mpf.Unity
                 default:
                     Logger.Error($"MPF sent an unknown commnand '{command}'");
                     break;
+            }
+        }
+
+        private void KillAllMpfProcesses()
+        {
+            var mpfProcesses = Process.GetProcessesByName("mpf");
+            try
+            {
+                foreach (var process in mpfProcesses)
+                {
+                    if (!process.HasExited)
+                        process.Kill();
+                }
+            }
+            finally
+            {
+                foreach (var process in mpfProcesses)
+                    process.Dispose();
             }
         }
     }
