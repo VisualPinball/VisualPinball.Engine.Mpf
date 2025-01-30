@@ -555,7 +555,14 @@ namespace VisualPinball.Engine.Mpf.Unity
             switch (_startupBehavior)
             {
                 case MpfStartupBehavior.PingUntilReady:
-                    await PingUntilResponseOrTimeout(channel, ct);
+                    Logger.Info("Attempting to connect to MPF...");
+                    var startTime = DateTime.Now;
+                    var pingResponse = await PingUntilResponseOrTimeout(channel, ct);
+                    var timeToConnect = (DateTime.Now - startTime).TotalSeconds;
+                    Logger.Info(
+                        $"Successfully connected to MPF in {timeToConnect:F2} seconds. "
+                            + $"MPF version: {pingResponse.MpfVersion}"
+                    );
                     break;
                 case MpfStartupBehavior.DelayConnection:
                     await Task.Delay(TimeSpan.FromSeconds(_connectDelay));
@@ -576,8 +583,6 @@ namespace VisualPinball.Engine.Mpf.Unity
             CancellationToken ct
         )
         {
-            Logger.Info("Attempting to connect to MPF...");
-            var startTime = DateTime.Now;
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_connectTimeout), cts.Token);
             var pingTask = PingUntilResponse(channel, cts.Token);
@@ -591,11 +596,6 @@ namespace VisualPinball.Engine.Mpf.Unity
                     await timeoutTask;
                 }
                 catch (OperationCanceledException) { }
-                var timeToConnect = (DateTime.Now - startTime).TotalSeconds;
-                Logger.Info(
-                    $"Successfully connected to MPF in {timeToConnect:F2} seconds. "
-                        + $"MPF version: {pingResponse.MpfVersion}"
-                );
                 return pingResponse;
             }
 
@@ -606,9 +606,25 @@ namespace VisualPinball.Engine.Mpf.Unity
                 await pingTask;
             }
             catch (OperationCanceledException) { }
-            throw new TimeoutException(
-                $"Timed out trying to connect to MPF after {_connectTimeout} seconds."
-            );
+
+            ct.ThrowIfCancellationRequested();
+
+            try
+            {
+                // Try one last time in case the application lost focus and wasn't actually pinging
+                var client = new MpfHardwareService.MpfHardwareServiceClient(channel);
+                return await client.PingAsync(
+                    new EmptyRequest(),
+                    deadline: DateTime.UtcNow.AddSeconds(1),
+                    cancellationToken: ct
+                );
+            }
+            catch (Exception ex) when (ex is IOException or RpcException)
+            {
+                throw new TimeoutException(
+                    $"Timed out trying to connect to MPF after {_connectTimeout} seconds."
+                );
+            }
         }
 
         private async Task<PingResponse> PingUntilResponse(
@@ -617,17 +633,16 @@ namespace VisualPinball.Engine.Mpf.Unity
         )
         {
             ct.ThrowIfCancellationRequested();
+            var client = new MpfHardwareService.MpfHardwareServiceClient(channel);
             while (true)
             {
                 try
                 {
-                    var client = new MpfHardwareService.MpfHardwareServiceClient(channel);
-                    var response = await client.PingAsync(
+                    return await client.PingAsync(
                         new EmptyRequest(),
                         deadline: DateTime.UtcNow.AddSeconds(1),
                         cancellationToken: ct
                     );
-                    return response;
                 }
                 catch (Exception ex) when (ex is IOException or RpcException)
                 {
