@@ -353,3 +353,6 @@ MigrationBackup/
 
 **/protos/*.cs
 VisualPinball.Engine.Mpf/machine/data/
+
+# macOS meta files
+*.DS_Store
