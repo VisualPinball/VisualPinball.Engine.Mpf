@@ -215,10 +215,12 @@ namespace VisualPinball.Engine.Mpf.Unity
             try
             {
                 MpfState = MpfState.Starting;
-                KillAllMpfProcesses();
 
                 if (_executableSource != MpfExecutableSource.AssumeRunning)
+                {
+                    KillAllMpfProcesses();
                     _mpfProcess = StartMpfProcess();
+                }
 
                 await ConnectToMpf(initialState, ct);
             }
