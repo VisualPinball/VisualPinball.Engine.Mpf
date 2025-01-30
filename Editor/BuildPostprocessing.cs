@@ -26,6 +26,11 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+        private const string _unsupportedPlaformMessage =
+            "Visual Pinball Engine does not ship with an MPF executable for the build "
+            + "platform '{}}.' The build will not work unless MPF is installed "
+            + "on the end-user's device";
+
         void IPostprocessBuildWithReport.OnPostprocessBuild(BuildReport report)
         {
             if (
@@ -34,16 +39,39 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             )
                 return;
 
-            var streamingAssetsPath = FindStreamingAssets(report.summary.outputPath);
+            var streamingAssetsPath = FindStreamingAssets(
+                report.summary.platform,
+                report.summary.outputPath
+            );
             CleanMachineFolder(streamingAssetsPath);
             AddMpfBinaries(report.summary.platform, streamingAssetsPath);
         }
 
-        private static string FindStreamingAssets(string buildExePath)
+        private static string FindStreamingAssets(BuildTarget platform, string buildExePath)
         {
-            var dataDir = Directory
-                .GetDirectories(Directory.GetParent(buildExePath).ToString(), "*_Data")
-                .FirstOrDefault();
+            string dataDir;
+
+            if (
+                platform
+                is BuildTarget.StandaloneWindows
+                    or BuildTarget.StandaloneWindows64
+                    or BuildTarget.StandaloneLinux64
+            )
+            {
+                dataDir = Directory
+                    .GetDirectories(Directory.GetParent(buildExePath).ToString(), "*_Data")
+                    .FirstOrDefault();
+            }
+            else if (platform is BuildTarget.StandaloneOSX)
+            {
+                dataDir = Path.Combine(buildExePath, "Contents", "Resources", "Data");
+            }
+            else
+            {
+                throw new PlatformNotSupportedException(
+                    string.Format(_unsupportedPlaformMessage, platform)
+                );
+            }
 
             return Path.Combine(dataDir, "StreamingAssets");
         }
@@ -63,9 +91,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 BuildTarget.StandaloneWindows => Constants.MpfBinaryDirWindows,
                 BuildTarget.StandaloneWindows64 => Constants.MpfBinaryDirWindows,
                 _ => throw new PlatformNotSupportedException(
-                    "Visual Pinball Engine does not ship with an MPF executable for the build "
-                        + $"platform '{platform}.' The build will not work unless MPF is installed "
-                        + $"on the end-user's device"
+                    string.Format(_unsupportedPlaformMessage, platform)
                 ),
             };
             var sourcePath = Path.Combine(
