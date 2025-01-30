@@ -81,6 +81,8 @@ namespace VisualPinball.Engine.Mpf.Unity
         public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
 #pragma warning restore CS0067
 
+        public string MachineFolder => _mpfWrangler.MachineFolder;
+
 #if UNITY_EDITOR
         public async Task QueryParseAndStoreMpfMachineDescription(CancellationToken ct)
         {

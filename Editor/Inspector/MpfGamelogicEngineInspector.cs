@@ -68,7 +68,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                             path = "./StreamingAssets/" + path.Split("StreamingAssets/")[1];
 
                         var machineFolderProp = serializedObject.FindProperty(
-                            $"_mpfStarter._machineFolder"
+                            $"_mpfWrangler._machineFolder"
                         );
                         machineFolderProp.stringValue = path;
                         serializedObject.ApplyModifiedProperties();
@@ -195,6 +195,9 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 executableSourceProp,
                 OnExecutableSourceChanged
             );
+
+            MachineFolderValidationBoxes(machineFolderField);
+
             return root;
         }
 
@@ -253,6 +256,45 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             {
                 var label = new Label(id);
                 parent.Add(label);
+            }
+        }
+
+        private void MachineFolderValidationBoxes(VisualElement machineFolderField)
+        {
+            var machineFolderProp = serializedObject.FindProperty($"_mpfWrangler._machineFolder");
+            var notAMachineFolderErrorBox = new HelpBox(
+                "The machine folder is not valid. It must contain a folder called 'config' "
+                    + "with at least one .yaml file inside.",
+                HelpBoxMessageType.Error
+            );
+            var streamingAssetsWarnBox = new HelpBox(
+                "The machine folder is not located in the 'StreamingAssets' folder. It will not be"
+                    + " included in builds.",
+                HelpBoxMessageType.Warning
+            );
+            streamingAssetsWarnBox.TrackPropertyValue(machineFolderProp, UpdateVisibility);
+            var container = machineFolderField.parent;
+            var index = container.IndexOf(machineFolderField);
+            container.Insert(index, notAMachineFolderErrorBox);
+            container.Insert(index + 1, streamingAssetsWarnBox);
+            UpdateVisibility(machineFolderProp);
+
+            void UpdateVisibility(SerializedProperty _)
+            {
+                var machineFolder = _mpfEngine.MachineFolder;
+                var isMachineFolderInStreamingAssets = machineFolder.StartsWith(
+                    Application.streamingAssetsPath
+                );
+                streamingAssetsWarnBox.style.display = isMachineFolderInStreamingAssets
+                    ? DisplayStyle.None
+                    : DisplayStyle.Flex;
+
+                var configDir = Path.Combine(machineFolder, "config");
+                var isValidMachineFolder =
+                    Directory.Exists(configDir) && Directory.GetFiles(configDir, "*.yaml").Any();
+                notAMachineFolderErrorBox.style.display = isValidMachineFolder
+                    ? DisplayStyle.None
+                    : DisplayStyle.Flex;
             }
         }
     }
