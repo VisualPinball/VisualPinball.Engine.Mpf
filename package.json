@@ -10,9 +10,7 @@
   "unity": "2021.3",
   "unityRelease": "0f1",
   "dependencies": {
-    "org.visualpinball.engine.unity": "0.0.1-preview.119",
-    "org.nuget.google.protobuf": "3.29.3",
-    "org.nuget.grpc.net.client": "2.67.0"
+    "org.visualpinball.engine.unity": "0.0.1-preview.119"
   },
   "author": "freezy <freezy@vpdb.io>",
   "contributors": [
