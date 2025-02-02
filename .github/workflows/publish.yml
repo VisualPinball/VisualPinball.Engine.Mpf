@@ -12,10 +12,8 @@ jobs:
         with:
           workflow: build
           run_id: ${{ github.event.client_payload.artifacts_run_id }}
-          path: VisualPinball.Engine.Mpf.Unity
       - name: Publish
         run: |
-          cd VisualPinball.Engine.Mpf.Unity
           echo "//registry.visualpinball.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
           npm publish
         env:
