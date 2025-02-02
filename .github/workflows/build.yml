@@ -28,11 +28,11 @@ jobs:
           dotnet build -c Release -r ${{ matrix.rid }}
       - run: |
           mkdir tmp
-          cp -r Dependencies/${{ matrix.rid }} tmp
+          cp -r Dependencies/${{ matrix.rid }} tmp/${{ matrix.rid }}
       - uses: actions/upload-artifact@v4
         with:
           name: Dependencies
-          path: tmp
+          path: tmp/${{ matrix.rid }}
 
   dispatch:
     runs-on: ubuntu-latest
