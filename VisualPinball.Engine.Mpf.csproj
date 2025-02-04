@@ -18,11 +18,21 @@
     <Compile Remove="**/*.cs" />
   </ItemGroup>
 
+  <!-- Specify runtime identifier-->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' != 'x86'">win-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(PlatformTarget)' == 'x86'">win-x86</RuntimeIdentifier>
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx</RuntimeIdentifier>
     <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <InstallYetAnotherHttpHandler Condition="'$(InstallYetAnotherHttpHandler)' == ''">true</InstallYetAnotherHttpHandler>
+  </PropertyGroup>
+
+  <!-- Specify what version (commit tag) of YetAnotherHttpHandler to install-->
+  <PropertyGroup Condition="'$(YetAnotherHttpHandlerVersion)' == ''">
+    <YetAnotherHttpHandlerVersion>1.10.0</YetAnotherHttpHandlerVersion>
   </PropertyGroup>
 
   <!-- Specify NuGet dependencies -->
@@ -42,17 +52,32 @@
     <Protobuf Include="Runtime/GrpcInterface/*.proto" OutputDir="$(ProjectDir)" GrpcServices="Client" />
   </ItemGroup>
 
-  <!-- Copy binaries to 'Dependencies' and delete everything else after build-->
-  <Target Name="CopyDependencies" AfterTargets="AfterBuild">
+  <!-- Copy NuGet binaries to 'Dependencies/NuGetDependencies'-->
+  <Target Name="CopyNuGetDependencies" AfterTargets="AfterBuild">
     <ItemGroup>
-      <OutputFiles Include="$(OutDir)\*.*"/>
+      <OutputFiles Include="$(OutDir)/*.*"/>
     </ItemGroup>
-    <ItemGroup>
-      <BuildArtifacts Include=".\obj\"/>
-      <BuildArtifacts Include=".\bin\"/>
-    </ItemGroup>
+    <Copy SourceFiles="@(OutputFiles)" DestinationFolder="./Dependencies/NuGetDependencies/$(RuntimeIdentifier)" SkipUnchangedFiles="true"/>
+  </Target>
 
-    <Copy SourceFiles="@(OutputFiles)" DestinationFolder=".\Dependencies\$(RuntimeIdentifier)" SkipUnchangedFiles="true"/>
+  <!-- Delete build artifacts-->
+  <Target Name="DeleteBuildArtifacts" AfterTargets="AfterBuild" DependsOnTargets="CopyNuGetDependencies">
+    <ItemGroup>
+      <BuildArtifacts Include="./obj/"/>
+      <BuildArtifacts Include="./bin/"/>
+    </ItemGroup>
     <RemoveDir Directories="@(BuildArtifacts)"/>
+  </Target>
+
+  <!-- Download YetAnotherHttpHandler from GitHub and copy into Dependencies directory-->
+  <Target Name="InstallYetAnotherHttpHandler" AfterTargets="AfterBuild" Condition="'$(InstallYetAnotherHttpHandler)' == 'true'">
+    <Exec Command="git clone --no-checkout --depth=1  --filter=tree:0 https://github.com/Cysharp/YetAnotherHttpHandler tmp" ConsoleToMSBuild="true" WorkingDirectory="Dependencies"/>
+    <Exec Command="git sparse-checkout set --no-cone /src/YetAnotherHttpHandler" ConsoleToMSBuild="true" WorkingDirectory="Dependencies/tmp"/>
+    <Exec Command="git checkout $(YetAnotherHttpHandlerVersion)" ConsoleToMSBuild="true" WorkingDirectory="Dependencies/tmp"/>
+    <ItemGroup>
+      <PackageFiles Include="Dependencies/tmp/src/YetAnotherHttpHandler/**/*.*"/>
+    </ItemGroup>
+    <Copy SourceFiles="@(PackageFiles)" DestinationFolder="Dependencies/YetAnotherHttpHandler/%(RecursiveDir)"/>
+    <RemoveDir Directories="Dependencies/tmp"/>
   </Target>
 </Project>
