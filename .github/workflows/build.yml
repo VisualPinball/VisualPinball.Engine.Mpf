@@ -22,19 +22,23 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Build
         run: |
           dotnet build -c Release -r ${{ matrix.rid }} -p:InstallYetAnotherHttpHandler=false
       - uses: actions/upload-artifact@v4
         with:
+          name: NuGetDependencies-${{ matrix.rid }}
           path: Dependencies/NuGetDependencies/${{ matrix.rid }}
   install-yetanotherhttphandler:
+    name: Install YetAnotherHttpHandler
     runs-on: ubuntu-latest
     steps:
+        - uses: actions/checkout@v4
         - run: dotnet build /t:InstallYetAnotherHttpHandler
         - uses: actions/upload-artifact@v4
           with:
+            name: YetAnotherHttpHandler
             path: Dependencies/YetAnotherHttpHandler
 
   dispatch:

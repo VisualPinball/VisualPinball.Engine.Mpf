@@ -71,6 +71,7 @@
 
   <!-- Download YetAnotherHttpHandler from GitHub and copy into Dependencies directory-->
   <Target Name="InstallYetAnotherHttpHandler" AfterTargets="AfterBuild" Condition="'$(InstallYetAnotherHttpHandler)' == 'true'">
+    <RemoveDir Directories="Dependencies/tmp"/>
     <Exec Command="git clone --no-checkout --depth=1  --filter=tree:0 https://github.com/Cysharp/YetAnotherHttpHandler tmp" ConsoleToMSBuild="true" WorkingDirectory="Dependencies"/>
     <Exec Command="git sparse-checkout set --no-cone /src/YetAnotherHttpHandler" ConsoleToMSBuild="true" WorkingDirectory="Dependencies/tmp"/>
     <Exec Command="git checkout $(YetAnotherHttpHandlerVersion)" ConsoleToMSBuild="true" WorkingDirectory="Dependencies/tmp"/>
@@ -78,6 +79,6 @@
       <PackageFiles Include="Dependencies/tmp/src/YetAnotherHttpHandler/**/*.*"/>
     </ItemGroup>
     <Copy SourceFiles="@(PackageFiles)" DestinationFolder="Dependencies/YetAnotherHttpHandler/%(RecursiveDir)"/>
-    <RemoveDir Directories="Dependencies/tmp"/>
+    <RemoveDir Directories="Dependencies/tmp;obj"/>
   </Target>
 </Project>
