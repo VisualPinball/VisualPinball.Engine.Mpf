@@ -73,7 +73,7 @@
   <Target Name="InstallYetAnotherHttpHandler" AfterTargets="AfterBuild" Condition="'$(InstallYetAnotherHttpHandler)' == 'true'">
     <RemoveDir Directories="Dependencies/tmp"/>
     <MakeDir Directories="Dependencies"/>
-    <Exec Command="git clone --no-checkout --depth=1  --filter=tree:0 https://github.com/Cysharp/YetAnotherHttpHandler tmp" ConsoleToMSBuild="true" WorkingDirectory="Dependencies"/>
+    <Exec Command="git clone --no-checkout --depth=1  --filter=tree:0 --branch $(YetAnotherHttpHandlerVersion) https://github.com/Cysharp/YetAnotherHttpHandler tmp" ConsoleToMSBuild="true" WorkingDirectory="Dependencies"/>
     <Exec Command="git sparse-checkout set --no-cone /src/YetAnotherHttpHandler" ConsoleToMSBuild="true" WorkingDirectory="Dependencies/tmp"/>
     <Exec Command="git checkout $(YetAnotherHttpHandlerVersion)" ConsoleToMSBuild="true" WorkingDirectory="Dependencies/tmp"/>
     <ItemGroup>
