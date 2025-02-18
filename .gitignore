@@ -359,3 +359,6 @@ VisualPinball.Engine.Mpf/machine/data/
 
 Dependencies/
 Dependencies.meta
+
+Runtime/GrpcInterface/Generated/
+Runtime/GrpcInterface/Generated.meta

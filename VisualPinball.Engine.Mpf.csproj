@@ -49,7 +49,7 @@
 
   <!-- Configure proto compiler -->
   <ItemGroup>
-    <Protobuf Include="Runtime/GrpcInterface/*.proto" OutputDir="$(ProjectDir)" GrpcServices="Client" />
+    <Protobuf ProtoRoot="Runtime/GrpcInterface/" Include= "Runtime/GrpcInterface/*.proto" OutputDir="Runtime\GrpcInterface\Generated" GrpcServices="Client" />
   </ItemGroup>
 
   <!-- Copy NuGet binaries to 'Dependencies/NuGetDependencies'-->
