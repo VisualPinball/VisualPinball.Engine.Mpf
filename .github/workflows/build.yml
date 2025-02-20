@@ -42,7 +42,7 @@ jobs:
         - uses: actions/upload-artifact@v4
           with:
             name: YetAnotherHttpHandler
-            path: Dependencies/YetAnotherHttpHandler
+            path: Dependencies
 
   dispatch:
     runs-on: ubuntu-latest
