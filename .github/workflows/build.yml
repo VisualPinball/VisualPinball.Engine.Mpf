@@ -37,8 +37,8 @@ jobs:
         - uses: actions/checkout@v4
         - run: dotnet build /t:InstallYetAnotherHttpHandler
         - run: |
-          mkdir tmp
-          cp -r Dependencies/NuGetDependencies/${{ matrix.rid }} tmp
+            mkdir tmp
+            cp -r Dependencies/NuGetDependencies/${{ matrix.rid }} tmp
         - uses: actions/upload-artifact@v4
           with:
             name: YetAnotherHttpHandler
