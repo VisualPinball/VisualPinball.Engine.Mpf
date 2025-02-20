@@ -26,23 +26,23 @@ jobs:
       - name: Build
         run: |
           dotnet build -c Release -r ${{ matrix.rid }} -p:InstallYetAnotherHttpHandler=false
+      - run: |
+          mkdir -p tmp/Plugins
+          cp -r Dependencies/NuGetDependencies/${{ matrix.rid }} tmp/Plugins    
       - uses: actions/upload-artifact@v4
         with:
           name: Plugins-${{ matrix.rid }}
-          path: Dependencies/NuGetDependencies
+          path: tmp
   install-yetanotherhttphandler:
     name: Install YetAnotherHttpHandler
     runs-on: ubuntu-latest
     steps:
         - uses: actions/checkout@v4
         - run: dotnet build /t:InstallYetAnotherHttpHandler
-        - run: |
-            mkdir tmp
-            cp -r Dependencies/NuGetDependencies/${{ matrix.rid }} tmp
         - uses: actions/upload-artifact@v4
           with:
             name: YetAnotherHttpHandler
-            path: tmp
+            path: Dependencies/YetAnotherHttpHandler
 
   dispatch:
     runs-on: ubuntu-latest
