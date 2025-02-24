@@ -33,14 +33,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.nextVersion.outputs.nextTag }}
-          release_name: ${{ steps.nextVersion.outputs.nextTag }}
+          name: ${{ steps.nextVersion.outputs.nextTag }}
           prerelease: ${{ steps.nextVersion.outputs.isPrerelease }}
-          commitish: ${{ steps.commit.outputs.commitish }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          target_commitish: ${{ steps.commit.outputs.commitish }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   dispatch:
     runs-on: ubuntu-latest
