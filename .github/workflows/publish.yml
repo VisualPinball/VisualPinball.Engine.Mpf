@@ -14,7 +14,7 @@ jobs:
           registry-url: 'https://registry.visualpinball.org'
       - uses: actions/download-artifact@v4
         with:
-          name: Plugins
+          name: Build-Artifacts
           path: .
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.client_payload.artifacts_run_id }}
