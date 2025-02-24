@@ -17,12 +17,14 @@ jobs:
         run: |
           dotnet build -c Release
       - run: |
-          mkdir -p tmp
+      - run: |
+          mkdir -p tmp/Runtime/GrpcInterface/Generated
           cp -r Plugins tmp
           cp -r YetAnotherHttpHandler tmp
+          cp -r Runtime/GrpcInterface/Generated/* tmp/Runtime/GrpcInterface/Generated/
       - uses: actions/upload-artifact@v4
         with:
-          name: Plugins
+          name: Build-Artifacts
           path: tmp
 
   dispatch:
