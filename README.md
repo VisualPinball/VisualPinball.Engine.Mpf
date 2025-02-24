@@ -4,34 +4,27 @@
 
 *Enables the Mission Pinball Framework to drive VPE*
 
-## Structure
+## Overview
 
-This project contains three folders:
+[MPF](https://missionpinball.org/latest/about/)  is an open-source framework 
+written in Python to drive real pinball machines. It has a "configuration over
+code" approach, meaning that 90% of what you'd do in a pinball game can be 
+achieved through configuration (YAML files) rather than implementing it in code.
 
-- `VisualPinball.Engine.Mpf` is a library which builds the gRPC protos and 
-  wraps them into a nicer interface.
-- `VisualPinball.Engine.Mpf.Test` is a command line tool that allows quick 
-  testing without running Unity
-- `VisualPinball.Engine.Mpf.Unity` is the Unity UPM package that plugs into 
-  VPE and implements the gamelogic engine.
-  
+When you read MPF's [Getting Started](https://missionpinball.org/latest/start/)
+page, you'll notice a banner stating that "MPF is not a simulator." Well, 
+you've found the simulator. ;)
 
-Currently, only the first two projects are contained in the provided VS 
-solution. In the future we might add the Unity project with its dependencies,
-but for now you'll need to open it through Unity.
+This project lets you use MPF to drive game logic in [VPE](https://github.com/freezy/VisualPinball.Engine), 
+a pinball simulator based on Unity. It does this by spawning a Python process running
+MPF and communicating with VPE through [gRPC](https://grpc.io/).
 
-### Binaries
+### Installation
 
-Both gRPC and Protobuf come with dependencies that conflict with Unity's, namely
-`System.Buffers`, `System.Memory` and `System.Runtime.CompilerServices`. To
-solve this, we disable assembly validation for `Google.Protobuf.dll` and `Grpc.Core.dll`
-via the plugin inspector.
-
-### Unity Package
-
-The goal of this repo is to use it within Unity. In order to do that, open the
-Package Manager in Unity, and add `org.visualpinball.engine.missionpinball` under 
-*Add package from git URL*.
+This project is available as a Unity package at `registry.visualpinball.org`. 
+To install it, make sure the scoped registry is added in your Package Manager 
+settings. Then open the Package Manager in Unity and add 
+`org.visualpinball.engine.missionpinball` under *Install package by name*.
 
 The Unity package is build and published to our registry on every merge to master.
 
@@ -59,30 +52,21 @@ actual binaries, `.meta` files of uncompiled platforms are cleaned up by Unity.
 In order to not accidentally commit those files, we recommend to ignore them:
 
 ```bash
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/VisualPinball.Engine.Mpf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/Google.Protobuf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/Grpc.Core.Api.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/Grpc.Core.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/linux-x64/libgrpc_csharp_ext.so.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/VisualPinball.Engine.Mpf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/Google.Protobuf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/Grpc.Core.Api.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/Grpc.Core.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/osx-x64/libgrpc_csharp_ext.dylib.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/VisualPinball.Engine.Mpf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/Google.Protobuf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/Grpc.Core.Api.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/Grpc.Core.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x64/grpc_csharp_ext.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/VisualPinball.Engine.Mpf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Google.Protobuf.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Grpc.Core.Api.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/Grpc.Core.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity/Plugins/win-x86/grpc_csharp_ext.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\linux-x64\System.Runtime.CompilerServices.Unsafe.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\osx-x64\System.Runtime.CompilerServices.Unsafe.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\win-x64\System.Runtime.CompilerServices.Unsafe.dll.meta
-git update-index --assume-unchanged VisualPinball.Engine.Mpf.Unity\Plugins\win-x86\System.Runtime.CompilerServices.Unsafe.dll.meta
+git update-index --assume-unchanged Plugins/Google.Protobuf.dll.meta
+git update-index --assume-unchanged Plugins/Grpc.Core.Api.dll.meta
+git update-index --assume-unchanged Plugins/Grpc.Net.Client.dll.meta
+git update-index --assume-unchanged Plugins/Grpc.Net.Common.dll.meta
+git update-index --assume-unchanged Plugins/Microsoft.Extensions.Logging.Abstractions.dll.meta
+git update-index --assume-unchanged Plugins/System.Buffers.dll.meta
+git update-index --assume-unchanged Plugins/System.Diagnostics.DiagnosticSource.dll.meta
+git update-index --assume-unchanged Plugins/System.IO.Pipelines.dll.meta
+git update-index --assume-unchanged Plugins/System.Memory.dll.meta
+git update-index --assume-unchanged Plugins/System.Numerics.Vectors.dll.meta
+git update-index --assume-unchanged Plugins/System.Runtime.CompilerServices.Unsafe.dll.meta
+git update-index --assume-unchanged Plugins/System.Threading.Tasks.Extensions.dll.meta
+git update-index --assume-unchanged Plugins/VisualPinball.Engine.Mpf.deps.json.meta
+git update-index --assume-unchanged Plugins/VisualPinball.Engine.Mpf.dll.meta
+git update-index --assume-unchanged Plugins/VisualPinball.Engine.Mpf.pdb.meta
 ```
 
 ## License
