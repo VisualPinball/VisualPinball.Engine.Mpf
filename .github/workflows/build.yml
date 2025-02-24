@@ -17,10 +17,9 @@ jobs:
         run: |
           dotnet build -c Release
       - run: |
-          mkdir -p tmp/Plugins
-          cp -r Plugins tmp/Plugins
-          mkdir -p tmp/YetAnotherHttpHandler
-          cp -r YetAnotherHttpHandler tmp/YetAnotherHttpHandler
+          mkdir -p tmp
+          cp -r Plugins tmp
+          cp -r YetAnotherHttpHandler tmp
       - uses: actions/upload-artifact@v4
         with:
           name: Plugins
