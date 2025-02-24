@@ -12,7 +12,7 @@ jobs:
           fetch-depth: 0
       - name: Fetch next version
         id: nextVersion
-        uses: VisualPinball/next-version-action@v0.1.7
+        uses: VisualPinball/next-version-action@v0
         with:
           tagPrefix: 'v'
       - name: Bump
