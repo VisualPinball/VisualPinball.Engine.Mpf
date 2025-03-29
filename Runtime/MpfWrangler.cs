@@ -10,6 +10,7 @@
 // SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -21,6 +22,8 @@ using Grpc.Net.Client;
 using Mpf.Vpe;
 using NLog;
 using UnityEngine;
+using VisualPinball.Engine.Mpf.Unity.MediaController;
+using VisualPinball.Unity;
 using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity
@@ -31,6 +34,7 @@ namespace VisualPinball.Engine.Mpf.Unity
     {
         None,
         GodotOrLegacyMc,
+        Included,
         Other,
     };
 
@@ -63,82 +67,43 @@ namespace VisualPinball.Engine.Mpf.Unity
         Stopping,
     }
 
-    public class MpfStateChangedEventArgs : EventArgs
+    public class StateChangedEventArgs<T> : EventArgs
     {
-        public readonly MpfState NewState;
-        public readonly MpfState PrevState;
+        public readonly T CurrentState;
+        public readonly T PrevState;
 
-        public MpfStateChangedEventArgs(MpfState newState, MpfState prevState)
+        public StateChangedEventArgs(T newState, T prevState)
         {
-            NewState = newState;
+            CurrentState = newState;
             PrevState = prevState;
         }
     }
 
-    /// <summary>
-    /// Responsible for managing the MPF process and the gRPC connection to it.
-    /// </summary>
     [Serializable]
-    public class MpfWrangler
+    public class MpfWranglerOptions
     {
-        public event EventHandler<MpfStateChangedEventArgs> MpfStateChanged;
-        public event EventHandler<FadeLightRequest> MpfFadeLightRequestReceived;
-        public event EventHandler<PulseCoilRequest> MpfPulseCoilRequestReceived;
-        public event EventHandler<EnableCoilRequest> MpfEnableCoilRequestReceived;
-        public event EventHandler<DisableCoilRequest> MpfDisableCoilRequestReceived;
-        public event EventHandler<ConfigureHardwareRuleRequest> MpfConfigureHardwareRuleRequestReceived;
-        public event EventHandler<RemoveHardwareRuleRequest> MpfRemoveHardwareRuleRequestReceived;
-        public event EventHandler<SetDmdFrameRequest> MpfSetDmdFrameRequestReceived;
-        public event EventHandler<SetSegmentDisplayFrameRequest> MpfSetSegmentDisplayFrameRequestReceived;
-
         [SerializeField]
         private MpfExecutableSource _executableSource = MpfExecutableSource.Included;
+        public MpfExecutableSource ExecutableSource => _executableSource;
 
         [SerializeField]
         private MpfStartupBehavior _startupBehavior = MpfStartupBehavior.PingUntilReady;
+        public MpfStartupBehavior StartupBehavior => _startupBehavior;
 
         [SerializeField]
-        private MpfMediaController _mediaController = MpfMediaController.None;
+        private MpfMediaController _mediaController = MpfMediaController.Included;
+        public MpfMediaController MediaController => _mediaController;
+
+        [SerializeField]
+        private BcpInterfaceOptions _bcpInterfaceOptions = new();
+        public BcpInterfaceOptions BcpInterfaceOptions => _bcpInterfaceOptions;
 
         [SerializeField]
         private MpfOutputType _outputType = MpfOutputType.TableInTerminal;
+        public MpfOutputType OutputType => _outputType;
 
         [SerializeField]
         private string _machineFolder = "./StreamingAssets/MpfMachineFolder";
-
-        [SerializeField]
-        private bool _verboseLogging = false;
-
-        [SerializeField]
-        private bool _cacheConfigFiles = true;
-
-        [SerializeField]
-        private bool _forceReloadConfig = false;
-
-        [SerializeField]
-        private bool _forceLoadAllAssetsOnStart = false;
-
-        [SerializeField]
-        [Range(3, 30)]
-        private float _connectTimeout = 10f;
-
-        [SerializeField]
-        [Range(0, 15)]
-        private float _connectDelay = 3f;
-
-        private Process _mpfProcess;
-        private GrpcChannel _grpcChannel;
-        private AsyncServerStreamingCall<Commands> _mpfCommandStreamCall;
-        private AsyncClientStreamingCall<SwitchChanges, EmptyResponse> _mpfSwitchStreamCall;
-        private CancellationTokenSource _mpfCommunicationCts;
-        private Task _receiveMpfCommandsTask;
-
-        [SerializeField]
-        private MpfState _mpfState;
-
-        private const string _grpcAddress = "http://localhost:50051";
-
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public string MachineFolder
         {
@@ -154,7 +119,103 @@ namespace VisualPinball.Engine.Mpf.Unity
 
                 return _machineFolder;
             }
+            set => _machineFolder = RealPathToSerializedPath(value);
         }
+
+        public static string RealPathToSerializedPath(string path)
+        {
+            path = path.Replace("\\", "/");
+            if (path.Contains("StreamingAssets/"))
+                path = "./StreamingAssets/" + path.Split("StreamingAssets/")[1];
+            return path;
+        }
+
+        [SerializeField]
+        private bool _verboseLogging = false;
+        public bool VerboseLogging => _verboseLogging;
+
+        [SerializeField]
+        private bool _cacheConfigFiles = true;
+        public bool CacheConfigFiles => _cacheConfigFiles;
+
+        [SerializeField]
+        private bool _forceReloadConfig = false;
+        public bool ForceReloadConfig => _forceReloadConfig;
+
+        [SerializeField]
+        private bool _forceLoadAllAssetsOnStart = false;
+        public bool ForceLoadAllAssetsOnStart => _forceLoadAllAssetsOnStart;
+
+        [Range(3, 30), SerializeField]
+        private float _connectTimeout = 10f;
+        public float ConnectTimeout => _connectTimeout;
+
+        [Range(0, 15), SerializeField]
+        private float _connectDelay = 3f;
+        public float ConnectDelay => _connectDelay;
+
+        public static MpfWranglerOptions Create(
+            MpfExecutableSource executableSource = MpfExecutableSource.Included,
+            MpfStartupBehavior startupBehavior = MpfStartupBehavior.PingUntilReady,
+            MpfMediaController mediaController = MpfMediaController.None,
+            BcpInterfaceOptions bcpInterfaceOptions = null,
+            MpfOutputType outputType = MpfOutputType.TableInTerminal,
+            string machineFolder = "./StreamingAssets/MpfMachineFolder",
+            bool verboseLogging = false,
+            bool cacheConfigFiles = true,
+            bool forceReloadConfig = false,
+            bool forceLoadAllAssetsOnStart = false,
+            float connectTimeout = 10f,
+            float connectDelay = 3f
+        )
+        {
+            return new MpfWranglerOptions
+            {
+                _executableSource = executableSource,
+                _startupBehavior = startupBehavior,
+                _mediaController = mediaController,
+                _bcpInterfaceOptions = bcpInterfaceOptions ?? new BcpInterfaceOptions(),
+                _outputType = outputType,
+                _machineFolder = machineFolder,
+                _verboseLogging = verboseLogging,
+                _cacheConfigFiles = cacheConfigFiles,
+                _forceReloadConfig = forceReloadConfig,
+                _forceLoadAllAssetsOnStart = forceLoadAllAssetsOnStart,
+                _connectTimeout = connectTimeout,
+                _connectDelay = connectDelay,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Responsible for managing the MPF process and the gRPC connection to it. Also starts and
+    /// stops the BCP server if the included media controller is used.
+    /// </summary>
+    public class MpfWrangler : IDisposable
+    {
+        public event EventHandler<StateChangedEventArgs<MpfState>> MpfStateChanged;
+        public event EventHandler<FadeLightRequest> MpfFadeLightRequestReceived;
+        public event EventHandler<PulseCoilRequest> MpfPulseCoilRequestReceived;
+        public event EventHandler<EnableCoilRequest> MpfEnableCoilRequestReceived;
+        public event EventHandler<DisableCoilRequest> MpfDisableCoilRequestReceived;
+        public event EventHandler<ConfigureHardwareRuleRequest> MpfConfigureHardwareRuleRequestReceived;
+        public event EventHandler<RemoveHardwareRuleRequest> MpfRemoveHardwareRuleRequestReceived;
+        public event EventHandler<SetDmdFrameRequest> MpfSetDmdFrameRequestReceived;
+        public event EventHandler<SetSegmentDisplayFrameRequest> MpfSetSegmentDisplayFrameRequestReceived;
+
+        private readonly MpfWranglerOptions _options;
+        private Process _mpfProcess;
+        private GrpcChannel _grpcChannel;
+        private AsyncServerStreamingCall<Commands> _mpfCommandStreamCall;
+        private AsyncClientStreamingCall<SwitchChanges, EmptyResponse> _mpfSwitchStreamCall;
+        private CancellationTokenSource _mpfCommunicationCts;
+        private Task _receiveMpfCommandsTask;
+        private MpfState _mpfState;
+        private LazyInit<SemaphoreSlim> _startStopSemaphore = new(() => new SemaphoreSlim(1, 1));
+
+        private const string _grpcAddress = "http://localhost:50051";
+
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public MpfState MpfState
         {
@@ -167,77 +228,88 @@ namespace VisualPinball.Engine.Mpf.Unity
                     _mpfState = value;
                     MpfStateChanged?.Invoke(
                         this,
-                        new MpfStateChangedEventArgs(_mpfState, prevState)
+                        new StateChangedEventArgs<MpfState>(_mpfState, prevState)
                     );
                 }
             }
         }
 
-        // This is a factory method instead of a constructor, because Unity will not
-        // respect the default field values defined above when a new instance of the
-        // MpfGamelogicEngine is created in the inspector if a constructor is defined.
-        public static MpfWrangler Create(
-            MpfExecutableSource executableSource = MpfExecutableSource.Included,
-            MpfMediaController mediaController = MpfMediaController.None,
-            MpfOutputType outputType = MpfOutputType.TableInTerminal,
-            string machineFolder = "./StreamingAssets/MpfMachineFolder",
-            bool verboseLogging = false,
-            bool cacheConfigFiles = true,
-            bool forceReloadConfig = false,
-            bool forceLoadAllAssetsOnStart = false
-        )
+        public readonly BcpInterface BcpInterface;
+
+        public MpfWrangler(MpfWranglerOptions options)
         {
-            return new MpfWrangler
-            {
-                _executableSource = executableSource,
-                _mediaController = mediaController,
-                _outputType = outputType,
-                _machineFolder = machineFolder,
-                _verboseLogging = verboseLogging,
-                _cacheConfigFiles = cacheConfigFiles,
-                _forceReloadConfig = forceReloadConfig,
-                _forceLoadAllAssetsOnStart = forceLoadAllAssetsOnStart,
-            };
+            _options = options;
+            if (_options.MediaController == MpfMediaController.Included)
+                BcpInterface = new BcpInterface(_options.BcpInterfaceOptions);
         }
 
         private MpfOutputType OutputTypeOverride =>
-            UnityEngine.Debug.isDebugBuild ? _outputType : MpfOutputType.None;
+            UnityEngine.Debug.isDebugBuild ? _options.OutputType : MpfOutputType.None;
 
         public async Task StartMpf(MachineState initialState, CancellationToken ct)
         {
-            if (MpfState != MpfState.NotConnected)
-                throw new InvalidOperationException(
-                    "MPF is already connected or in the process of connecting."
-                );
-
             ct.ThrowIfCancellationRequested();
+            await _startStopSemaphore.Ref.WaitAsync(ct);
+
+            if (MpfState == MpfState.Connected)
+            {
+                _startStopSemaphore.Ref.Release();
+                return;
+            }
 
             try
             {
                 MpfState = MpfState.Starting;
 
-                if (_executableSource != MpfExecutableSource.AssumeRunning)
+                if (_options.ExecutableSource != MpfExecutableSource.AssumeRunning)
                 {
                     KillAllMpfProcesses();
                     _mpfProcess = StartMpfProcess();
                 }
 
-                await ConnectToMpf(initialState, ct);
+                if (_options.MediaController == MpfMediaController.Included)
+                    await Task.WhenAll(BcpInterface.StartServer(), ConnectToMpf(initialState, ct));
+                else
+                    await ConnectToMpf(initialState, ct);
             }
             catch (Exception ex)
             {
-                if (_mpfProcess != null && !_mpfProcess.HasExited)
-                    _mpfProcess.Kill();
+                try
+                {
+                    if (_options.MediaController == MpfMediaController.Included)
+                        await BcpInterface.StopServer();
+                }
+                finally
+                {
+                    if (_mpfProcess != null && !_mpfProcess.HasExited)
+                        _mpfProcess.Kill();
 
-                KillAllMpfProcesses();
+                    KillAllMpfProcesses();
 
-                _mpfProcess?.Dispose();
-                _mpfProcess = null;
-                MpfState = MpfState.NotConnected;
-                throw ex;
+                    _mpfProcess?.Dispose();
+                    _mpfProcess = null;
+
+                    try
+                    {
+                        MpfState = MpfState.NotConnected;
+                    }
+                    finally
+                    {
+                        _startStopSemaphore.Ref.Release();
+                    }
+
+                    throw ex;
+                }
             }
 
-            MpfState = MpfState.Connected;
+            try
+            {
+                MpfState = MpfState.Connected;
+            }
+            finally
+            {
+                _startStopSemaphore.Ref.Release();
+            }
         }
 
         public async Task<MachineDescription> GetMachineDescription(
@@ -274,20 +346,38 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         public async Task StopMpf()
         {
-            switch (MpfState)
+            await _startStopSemaphore.Ref.WaitAsync();
+
+            if (MpfState == MpfState.NotConnected)
             {
-                case MpfState.NotConnected:
-                case MpfState.Stopping:
-                    return;
-                case MpfState.Starting:
+                _startStopSemaphore.Ref.Release();
+                return;
+            }
+
+            try
+            {
+                MpfState = MpfState.Stopping;
+            }
+            finally
+            {
+                try
+                {
                     _mpfCommunicationCts?.Cancel();
-                    return;
-                case MpfState.Connected:
-                    MpfState = MpfState.Stopping;
-                    var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
+                    if (_receiveMpfCommandsTask != null)
+                    {
+                        try
+                        {
+                            await _receiveMpfCommandsTask;
+                        }
+                        catch (OperationCanceledException) { }
+                    }
+                }
+                finally
+                {
                     try
                     {
-                        await client.QuitAsync(
+                        var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
+                        _ = await client.QuitAsync(
                             new QuitRequest(),
                             deadline: DateTime.UtcNow.AddSeconds(1)
                         );
@@ -296,9 +386,8 @@ namespace VisualPinball.Engine.Mpf.Unity
                     {
                         try
                         {
-                            _mpfCommunicationCts?.Cancel();
-                            if (_receiveMpfCommandsTask != null)
-                                await _receiveMpfCommandsTask;
+                            if (_options.MediaController == MpfMediaController.Included)
+                                await BcpInterface.StopServer();
                         }
                         finally
                         {
@@ -323,11 +412,6 @@ namespace VisualPinball.Engine.Mpf.Unity
                                     )
                                         _mpfProcess.Kill();
                                 }
-                                else
-                                {
-                                    await Task.Delay(TimeSpan.FromSeconds(1));
-                                    KillAllMpfProcesses();
-                                }
                             }
                             finally
                             {
@@ -343,11 +427,18 @@ namespace VisualPinball.Engine.Mpf.Unity
                                 _mpfProcess?.Dispose();
                                 _mpfProcess = null;
 
-                                MpfState = MpfState.NotConnected;
+                                try
+                                {
+                                    MpfState = MpfState.NotConnected;
+                                }
+                                finally
+                                {
+                                    _startStopSemaphore.Ref.Release();
+                                }
                             }
                         }
                     }
-                    return;
+                }
             }
         }
 
@@ -355,13 +446,10 @@ namespace VisualPinball.Engine.Mpf.Unity
         {
             var process = new Process();
             process.StartInfo.FileName = GetExecutablePath();
-            process.StartInfo.Arguments = GetCmdArgs(MachineFolder);
+            process.StartInfo.Arguments = GetCmdArgs(_options.MachineFolder);
             // Make sure the MPF window does not pop up in release builds
-            var outputTypeOverride = UnityEngine.Debug.isDebugBuild
-                ? OutputTypeOverride
-                : MpfOutputType.None;
             var createWindow =
-                outputTypeOverride is MpfOutputType.LogInTerminal or MpfOutputType.TableInTerminal;
+                OutputTypeOverride is MpfOutputType.LogInTerminal or MpfOutputType.TableInTerminal;
             process.StartInfo.UseShellExecute = createWindow;
             process.StartInfo.CreateNoWindow = !createWindow;
 
@@ -393,7 +481,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.RedirectStandardOutput = true;
 
-                if (outputTypeOverride == MpfOutputType.LogInUnityConsole)
+                if (OutputTypeOverride == MpfOutputType.LogInUnityConsole)
                 {
                     process.OutputDataReceived += new DataReceivedEventHandler(
                         (sender, e) => Logger.Info($"MPF: {e.Data}")
@@ -402,6 +490,8 @@ namespace VisualPinball.Engine.Mpf.Unity
                     process.ErrorDataReceived += new DataReceivedEventHandler(
                         (sender, e) =>
                         {
+                            if (e.Data == null)
+                                return;
                             // For some reason, all (?) output from MPF is routed to this error handler,
                             // so filter manually. This is obviously flawed and will sometimes fail
                             // to recognize errors.
@@ -419,7 +509,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             process.Start();
 
-            if (outputTypeOverride == MpfOutputType.LogInUnityConsole)
+            if (OutputTypeOverride == MpfOutputType.LogInUnityConsole)
             {
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
@@ -439,40 +529,49 @@ namespace VisualPinball.Engine.Mpf.Unity
             _grpcChannel = GrpcChannel.ForAddress(_grpcAddress, options);
             _mpfCommunicationCts = new CancellationTokenSource();
 
-            if (_executableSource != MpfExecutableSource.AssumeRunning)
+            try
             {
-                using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(
-                    ct,
-                    _mpfCommunicationCts.Token
+                if (_options.ExecutableSource != MpfExecutableSource.AssumeRunning)
+                    await WaitUntilMpfReady(_grpcChannel, ct);
+
+                var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
+                _mpfCommandStreamCall = client.Start(
+                    initialState,
+                    cancellationToken: _mpfCommunicationCts.Token
                 );
+                _mpfSwitchStreamCall = client.SendSwitchChanges(
+                    cancellationToken: _mpfCommunicationCts.Token
+                );
+                _receiveMpfCommandsTask = ReceiveMpfCommands();
+            }
+            catch (Exception ex)
+            {
+                _mpfCommunicationCts?.Cancel();
                 try
                 {
-                    await WaitUntilMpfReady(_grpcChannel, waitCts.Token);
+                    if (_receiveMpfCommandsTask != null)
+                        await _receiveMpfCommandsTask;
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException) { }
+                finally
                 {
+                    _receiveMpfCommandsTask = null;
                     _mpfCommunicationCts?.Dispose();
                     _mpfCommunicationCts = null;
                     _grpcChannel?.Dispose();
                     _grpcChannel = null;
+                    _mpfSwitchStreamCall?.Dispose();
+                    _mpfSwitchStreamCall = null;
+                    _mpfCommandStreamCall?.Dispose();
+                    _mpfCommandStreamCall = null;
                     throw ex;
                 }
             }
-
-            var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
-            _mpfCommandStreamCall = client.Start(
-                initialState,
-                cancellationToken: _mpfCommunicationCts.Token
-            );
-            _mpfSwitchStreamCall = client.SendSwitchChanges(
-                cancellationToken: _mpfCommunicationCts.Token
-            );
-            _receiveMpfCommandsTask = ReceiveMpfCommands();
         }
 
         private string GetExecutablePath()
         {
-            switch (_executableSource)
+            switch (_options.ExecutableSource)
             {
                 case MpfExecutableSource.Included:
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
@@ -504,7 +603,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                     );
                 default:
                     throw new NotImplementedException(
-                        $"Cannot get path for unknown MPF executable source '{_executableSource}'"
+                        $"Cannot get path for unknown MPF executable source '{_options.ExecutableSource}'"
                     );
             }
         }
@@ -513,7 +612,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         {
             var sb = new StringBuilder(machineFolder);
 
-            switch (_mediaController)
+            switch (_options.MediaController)
             {
                 case MpfMediaController.None:
                     sb.Append(" -b");
@@ -521,24 +620,23 @@ namespace VisualPinball.Engine.Mpf.Unity
                 case MpfMediaController.GodotOrLegacyMc:
                     sb.Insert(0, "both ");
                     break;
-                case MpfMediaController.Other:
-                    // Default behavior of MPF
+                default:
                     break;
             }
 
             if (OutputTypeOverride != MpfOutputType.TableInTerminal)
                 sb.Append(" -t");
 
-            if (_verboseLogging)
+            if (_options.VerboseLogging)
                 sb.Append(" -v -V");
 
-            if (!_cacheConfigFiles)
+            if (!_options.CacheConfigFiles)
                 sb.Append(" -A");
 
-            if (_forceReloadConfig)
+            if (_options.ForceReloadConfig)
                 sb.Append(" -a");
 
-            if (_forceLoadAllAssetsOnStart)
+            if (_options.ForceLoadAllAssetsOnStart)
                 sb.Append(" -f");
 
             return sb.ToString();
@@ -554,7 +652,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             // with VPE. For compatibility with official versions of MPF, connection can simply be
             // delayed by a few seconds, but this can fail if MPF is slow to start up and wastes
             // time if MPF starts up more quickly than expected.
-            switch (_startupBehavior)
+            switch (_options.StartupBehavior)
             {
                 case MpfStartupBehavior.PingUntilReady:
                     Logger.Info("Attempting to connect to MPF...");
@@ -567,7 +665,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                     );
                     break;
                 case MpfStartupBehavior.DelayConnection:
-                    await Task.Delay(TimeSpan.FromSeconds(_connectDelay));
+                    await Task.Delay(TimeSpan.FromSeconds(_options.ConnectDelay), ct);
                     break;
             }
         }
@@ -586,7 +684,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         )
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_connectTimeout), cts.Token);
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_options.ConnectTimeout), cts.Token);
             var pingTask = PingUntilResponse(channel, cts.Token);
 
             if (await Task.WhenAny(pingTask, timeoutTask) == pingTask)
@@ -624,7 +722,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             catch (Exception ex) when (ex is IOException or RpcException)
             {
                 throw new TimeoutException(
-                    $"Timed out trying to connect to MPF after {_connectTimeout} seconds."
+                    $"Timed out trying to connect to MPF after {_options.ConnectTimeout} seconds."
                 );
             }
         }
@@ -736,6 +834,17 @@ namespace VisualPinball.Engine.Mpf.Unity
                 foreach (var process in mpfProcesses)
                     process.Dispose();
             }
+        }
+
+        public void Dispose()
+        {
+            _mpfCommunicationCts?.Dispose();
+            BcpInterface?.Dispose();
+            _grpcChannel?.Dispose();
+            _mpfProcess?.Dispose();
+            _mpfCommandStreamCall?.Dispose();
+            _mpfSwitchStreamCall?.Dispose();
+            _startStopSemaphore.Ref.Dispose();
         }
     }
 }

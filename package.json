@@ -10,7 +10,9 @@
   "unity": "6000.0",
   "unityRelease": "37f1",
   "dependencies": {
-    "org.visualpinball.engine.unity": "0.0.1-preview.119"
+    "org.visualpinball.engine.unity": "0.0.1-preview.119",
+    "com.unity.textmeshpro": "3.0.9",
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
   },
   "author": "freezy <freezy@vpdb.io>",
   "contributors": [

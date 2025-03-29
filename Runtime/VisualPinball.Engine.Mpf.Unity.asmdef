@@ -4,7 +4,8 @@
     "references": [
         "VisualPinball.Engine",
         "VisualPinball.Unity",
-        "Cysharp.Net.Http.YetAnotherHttpHandler"
+        "Cysharp.Net.Http.YetAnotherHttpHandler",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -16,8 +16,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Mpf.Vpe;
 using NLog;
+using NUnit.Framework.Constraints;
 using UnityEngine;
 using VisualPinball.Engine.Game.Engines;
+using VisualPinball.Engine.Mpf.Unity.MediaController;
 using VisualPinball.Unity;
 using Logger = NLog.Logger;
 
@@ -30,7 +32,7 @@ namespace VisualPinball.Engine.Mpf.Unity
     public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine
     {
         [SerializeField]
-        private MpfWrangler _mpfWrangler;
+        private MpfWranglerOptions _wranglerOptions;
 
         [SerializeField]
         private SerializedGamelogicEngineSwitch[] _requestedSwitches =
@@ -59,8 +61,49 @@ namespace VisualPinball.Engine.Mpf.Unity
         [SerializeField]
         private MpfNameNumberDictionary _mpfLampNumbers = new();
 
+        private MpfWrangler _mpfWrangler;
+        private MpfWrangler MpfWrangler
+        {
+            get
+            {
+                if (_mpfWrangler == null)
+                    MpfWrangler = new MpfWrangler(_wranglerOptions);
+                return _mpfWrangler;
+            }
+            set
+            {
+                if (value != _mpfWrangler)
+                {
+                    if (_mpfWrangler != null)
+                    {
+                        _mpfWrangler.MpfStateChanged -= OnMpfStateChanged;
+                        if (_mpfWrangler.BcpInterface != null)
+                            _mpfWrangler.BcpInterface.ConnectionStateChanged -= OnBcpStateChanged;
+                        _mpfWrangler.Dispose();
+                    }
+                    var prevMpfState = MpfState;
+                    var prevBcpState = BcpState;
+                    _mpfWrangler = value;
+                    if (_mpfWrangler != null)
+                    {
+                        _mpfWrangler.MpfStateChanged += OnMpfStateChanged;
+                        if (_mpfWrangler.BcpInterface != null)
+                            _mpfWrangler.BcpInterface.ConnectionStateChanged += OnBcpStateChanged;
+                    }
+                    if (prevMpfState != MpfState)
+                        MpfStateChanged?.Invoke(
+                            this,
+                            new StateChangedEventArgs<MpfState>(MpfState, prevMpfState)
+                        );
+                    if (prevBcpState != BcpState)
+                        BcpStateChanged?.Invoke(
+                            this,
+                            new StateChangedEventArgs<BcpConnectionState>(BcpState, prevBcpState)
+                        );
+                }
+            }
+        }
         private Player _player;
-
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public string Name => "Mission Pinball Framework";
@@ -68,7 +111,34 @@ namespace VisualPinball.Engine.Mpf.Unity
         public GamelogicEngineLamp[] RequestedLamps => _requestedLamps;
         public GamelogicEngineCoil[] RequestedCoils => _requestedCoils;
         public GamelogicEngineWire[] AvailableWires => Array.Empty<GamelogicEngineWire>();
-        public MpfWrangler MpfWrangler => _mpfWrangler;
+
+        public MpfState MpfState
+        {
+            get
+            {
+                if (_mpfWrangler != null)
+                    return _mpfWrangler.MpfState;
+                else
+                    return MpfState.NotConnected;
+            }
+        }
+
+        public event EventHandler<StateChangedEventArgs<MpfState>> MpfStateChanged;
+
+        public BcpConnectionState BcpState
+        {
+            get
+            {
+                if (_mpfWrangler != null && _mpfWrangler.BcpInterface != null)
+                    return _mpfWrangler.BcpInterface.ConnectionState;
+                else
+                    return BcpConnectionState.NotConnected;
+            }
+        }
+
+        public event EventHandler<StateChangedEventArgs<BcpConnectionState>> BcpStateChanged;
+
+        public MpfMediaController MediaControllerSetting => _wranglerOptions.MediaController;
 
 #pragma warning disable CS0067
         public event EventHandler<RequestedDisplays> OnDisplaysRequested;
@@ -81,49 +151,69 @@ namespace VisualPinball.Engine.Mpf.Unity
         public event EventHandler<SwitchEventArgs2> OnSwitchChanged;
 #pragma warning restore CS0067
 
-        public string MachineFolder => _mpfWrangler.MachineFolder;
-
 #if UNITY_EDITOR
+        private static SemaphoreSlim _editorGetMachineDescriptionSemaphore;
+
         public async Task QueryParseAndStoreMpfMachineDescription(CancellationToken ct)
         {
             if (Application.isPlaying)
                 throw new Exception("This method should only be called in edit mode.");
 
-            ct.ThrowIfCancellationRequested();
-            var defaultWrangler = _mpfWrangler;
+            _editorGetMachineDescriptionSemaphore ??= new SemaphoreSlim(1, 1);
+            // Wait until prior calls to this method have finished
+            await _editorGetMachineDescriptionSemaphore.WaitAsync(ct);
+            var defaultWranglerOptions = _wranglerOptions;
             try
             {
                 // Use a new wrangler that has the right options for getting the machine
                 // description. The _mpfWrangler field is temporarily overwritten to make the
                 // MPF state of this wrangler show up in the inspector.
-                _mpfWrangler = MpfWrangler.Create(
+                _wranglerOptions = MpfWranglerOptions.Create(
                     mediaController: MpfMediaController.None,
                     outputType: MpfOutputType.LogInUnityConsole,
-                    machineFolder: _mpfWrangler.MachineFolder,
+                    machineFolder: _wranglerOptions.MachineFolder,
                     cacheConfigFiles: false,
                     forceReloadConfig: true
                 );
+                MpfWrangler = new MpfWrangler(_wranglerOptions);
                 // Not runtime, so there is no machine state.
                 // Also doesn't matter for getting machine desc.
                 var initialState = new MachineState();
 
-                await _mpfWrangler.StartMpf(initialState, ct);
-                var machineDescription = await _mpfWrangler.GetMachineDescription(timeout: 3f, ct);
-                await _mpfWrangler.StopMpf();
+                await MpfWrangler.StartMpf(initialState, ct);
+                try
+                {
+                    var machineDescription = await MpfWrangler.GetMachineDescription(
+                        timeout: 3f,
+                        ct
+                    );
 
-                ct.ThrowIfCancellationRequested();
+                    ct.ThrowIfCancellationRequested();
 
-                _requestedSwitches = machineDescription.GetSwitches().ToArray();
-                _requestedCoils = machineDescription.GetCoils().ToArray();
-                _requestedLamps = machineDescription.GetLights().ToArray();
-                _mpfSwitchNumbers.Init(machineDescription.GetSwitchNumbersByNameDict());
-                _mpfCoilNumbers.Init(machineDescription.GetCoilNumbersByNameDict());
-                _mpfLampNumbers.Init(machineDescription.GetLampNumbersByNameDict());
-                _mpfDotMatrixDisplays = machineDescription.GetDmds().ToArray();
+                    _requestedSwitches = machineDescription.GetSwitches().ToArray();
+                    _requestedCoils = machineDescription.GetCoils().ToArray();
+                    _requestedLamps = machineDescription.GetLights().ToArray();
+                    _mpfSwitchNumbers.Init(machineDescription.GetSwitchNumbersByNameDict());
+                    _mpfCoilNumbers.Init(machineDescription.GetCoilNumbersByNameDict());
+                    _mpfLampNumbers.Init(machineDescription.GetLampNumbersByNameDict());
+                    _mpfDotMatrixDisplays = machineDescription.GetDmds().ToArray();
+                }
+                finally
+                {
+                    await MpfWrangler.StopMpf();
+                }
             }
             finally
             {
-                _mpfWrangler = defaultWrangler;
+                MpfWrangler.Dispose();
+                MpfWrangler = null;
+                _wranglerOptions = defaultWranglerOptions;
+                _editorGetMachineDescriptionSemaphore.Release();
+                if (_editorGetMachineDescriptionSemaphore.CurrentCount == 1)
+                {
+                    _editorGetMachineDescriptionSemaphore.Dispose();
+                    _editorGetMachineDescriptionSemaphore = null;
+                }
             }
         }
 #endif
@@ -139,25 +229,24 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             _player = player;
 
-            _mpfWrangler.MpfFadeLightRequestReceived += ExecuteMpfFadeLightRequest;
-            _mpfWrangler.MpfPulseCoilRequestReceived += ExecuteMpfPulseCoilRequest;
-            _mpfWrangler.MpfEnableCoilRequestReceived += ExecuteMpfEnableCoilRequest;
-            _mpfWrangler.MpfDisableCoilRequestReceived += ExecuteMpfCommandDisableCoilRequest;
-            _mpfWrangler.MpfConfigureHardwareRuleRequestReceived +=
+            MpfWrangler.MpfFadeLightRequestReceived += ExecuteMpfFadeLightRequest;
+            MpfWrangler.MpfPulseCoilRequestReceived += ExecuteMpfPulseCoilRequest;
+            MpfWrangler.MpfEnableCoilRequestReceived += ExecuteMpfEnableCoilRequest;
+            MpfWrangler.MpfDisableCoilRequestReceived += ExecuteMpfCommandDisableCoilRequest;
+            MpfWrangler.MpfConfigureHardwareRuleRequestReceived +=
                 ExecuteMpfConfigureHardwareRuleRequest;
-            _mpfWrangler.MpfRemoveHardwareRuleRequestReceived +=
-                ExecuteMpfRemoveHardwareRuleRequest;
-            _mpfWrangler.MpfSetDmdFrameRequestReceived += ExecuteMpfSetDmdFrameRequest;
-            _mpfWrangler.MpfSetSegmentDisplayFrameRequestReceived +=
+            MpfWrangler.MpfRemoveHardwareRuleRequestReceived += ExecuteMpfRemoveHardwareRuleRequest;
+            MpfWrangler.MpfSetDmdFrameRequestReceived += ExecuteMpfSetDmdFrameRequest;
+            MpfWrangler.MpfSetSegmentDisplayFrameRequestReceived +=
                 ExecuteMpfSetSegmentDisplayFrameRequest;
 
             MachineState initialState = CompileMachineState(player);
-            await _mpfWrangler.StartMpf(initialState, ct);
+            await MpfWrangler.StartMpf(initialState, ct);
 
             OnDisplaysRequested?.Invoke(this, new RequestedDisplays(_mpfDotMatrixDisplays));
             OnStarted?.Invoke(this, EventArgs.Empty);
 
-            var md = await _mpfWrangler.GetMachineDescription(timeout: 3f, ct);
+            var md = await MpfWrangler.GetMachineDescription(timeout: 3f, ct);
             if (!DoesMachineDescriptionMatch(md))
                 Logger.Warn("Mismatch between MPF's and VPE's machine description detected.");
             else
@@ -166,18 +255,79 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private async void OnDestroy()
         {
-            await _mpfWrangler.StopMpf();
-            _mpfWrangler.MpfFadeLightRequestReceived -= ExecuteMpfFadeLightRequest;
-            _mpfWrangler.MpfPulseCoilRequestReceived -= ExecuteMpfPulseCoilRequest;
-            _mpfWrangler.MpfEnableCoilRequestReceived -= ExecuteMpfEnableCoilRequest;
-            _mpfWrangler.MpfDisableCoilRequestReceived -= ExecuteMpfCommandDisableCoilRequest;
-            _mpfWrangler.MpfConfigureHardwareRuleRequestReceived -=
+            await MpfWrangler.StopMpf();
+            MpfWrangler.MpfFadeLightRequestReceived -= ExecuteMpfFadeLightRequest;
+            MpfWrangler.MpfPulseCoilRequestReceived -= ExecuteMpfPulseCoilRequest;
+            MpfWrangler.MpfEnableCoilRequestReceived -= ExecuteMpfEnableCoilRequest;
+            MpfWrangler.MpfDisableCoilRequestReceived -= ExecuteMpfCommandDisableCoilRequest;
+            MpfWrangler.MpfConfigureHardwareRuleRequestReceived -=
                 ExecuteMpfConfigureHardwareRuleRequest;
-            _mpfWrangler.MpfRemoveHardwareRuleRequestReceived -=
-                ExecuteMpfRemoveHardwareRuleRequest;
-            _mpfWrangler.MpfSetDmdFrameRequestReceived -= ExecuteMpfSetDmdFrameRequest;
-            _mpfWrangler.MpfSetSegmentDisplayFrameRequestReceived -=
+            MpfWrangler.MpfRemoveHardwareRuleRequestReceived -= ExecuteMpfRemoveHardwareRuleRequest;
+            MpfWrangler.MpfSetDmdFrameRequestReceived -= ExecuteMpfSetDmdFrameRequest;
+            MpfWrangler.MpfSetSegmentDisplayFrameRequestReceived -=
                 ExecuteMpfSetSegmentDisplayFrameRequest;
+            MpfWrangler.Dispose();
+        }
+
+        public static bool TryGetBcpInterface(
+            Component requestingComponent,
+            out BcpInterface bcpInterface
+        )
+        {
+            var gle = requestingComponent.GetComponentInParent<MpfGamelogicEngine>();
+
+            var errorMessage =
+                $"Component '{requestingComponent.GetType()}' on game object "
+                + $"'{requestingComponent.gameObject.name}' is requesting a BCP interface, but "
+                + "{0} The BCP interface is used to communicate with the Mission Pinball Framework";
+
+            if (!Application.isPlaying)
+            {
+                Logger.Error(string.Format(errorMessage, "the game is not running."));
+                bcpInterface = null;
+                return false;
+            }
+
+            if (gle == null)
+            {
+                Logger.Error(
+                    string.Format(
+                        errorMessage,
+                        "no MPF game logic engine was found. Make sure the requesting component is "
+                            + "attached to an object that is part of the table hierarchy and "
+                            + "attach an 'MpfGamelogicEngine' component to the root object of the "
+                            + "table or remove the component that requested the BCP interface."
+                    )
+                );
+                bcpInterface = null;
+                return false;
+            }
+
+            if (gle._wranglerOptions.MediaController != MpfMediaController.Included)
+            {
+                Logger.Error(
+                    string.Format(
+                        errorMessage,
+                        "the game logic engine is not configured to use the integrated MPF media "
+                            + "controller. Set 'Media Controller' to 'Included' in the MPF game "
+                            + "logic engine inspector."
+                    )
+                );
+                bcpInterface = null;
+                return false;
+            }
+
+            if (gle.MpfWrangler == null)
+            {
+                Logger.Error(
+                    string.Format(errorMessage, "the game logic engine is not initialized.")
+                );
+                bcpInterface = null;
+                return false;
+            }
+
+            bcpInterface = gle.MpfWrangler.BcpInterface;
+            return true;
         }
 
         public void DisplayChanged(DisplayFrameData displayFrameData) { }
@@ -216,7 +366,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             if (_mpfSwitchNumbers.ContainsName(id))
             {
-                if (_mpfWrangler.MpfState == MpfState.Connected)
+                if (MpfWrangler.MpfState == MpfState.Connected)
                 {
                     var number = _mpfSwitchNumbers.GetNumberByName(id);
                     var change = new SwitchChanges
@@ -224,7 +374,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                         SwitchNumber = number,
                         SwitchState = isClosed,
                     };
-                    await _mpfWrangler.SendSwitchChange(change);
+                    await MpfWrangler.SendSwitchChange(change);
                 }
                 else
                 {
@@ -240,6 +390,19 @@ namespace VisualPinball.Engine.Mpf.Unity
                         + $" associated with an MPF number. State change cannot be forwarded to MPF."
                 );
             }
+        }
+
+        private void OnMpfStateChanged(object sender, StateChangedEventArgs<MpfState> args)
+        {
+            MpfStateChanged?.Invoke(this, args);
+        }
+
+        private void OnBcpStateChanged(
+            object sender,
+            StateChangedEventArgs<BcpConnectionState> args
+        )
+        {
+            BcpStateChanged?.Invoke(this, args);
         }
 
         private bool DoesMachineDescriptionMatch(MachineDescription md)

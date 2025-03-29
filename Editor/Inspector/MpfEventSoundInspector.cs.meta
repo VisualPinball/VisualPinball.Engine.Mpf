@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 9625a0bfe8daf7140bbbb7dc1e77bceb
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - soundComponentInspectorXml: {fileID: 9197481963319205126, guid: 86610575353b6f44aa325d86ee6d779b,
+      type: 3}
+  - mpfEventSoundInspectorXml: {fileID: 9197481963319205126, guid: 8aa1309004b4c514f8c210d6f7c23fc1,
+      type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

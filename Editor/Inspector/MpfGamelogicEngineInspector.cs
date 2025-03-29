@@ -17,11 +17,11 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Grpc.Core;
-using Mono.Cecil;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using VisualPinball.Engine.Mpf.Unity.MediaController;
 using VisualPinball.Unity;
 
 namespace VisualPinball.Engine.Mpf.Unity.Editor
@@ -38,6 +38,9 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
         private PropertyField _connectDelayField;
         private VisualElement _commandLineOptionsContainer;
         private VisualElement _startupBehaviorOptionsContainer;
+        private TextField _mpfStateField;
+        private TextField _mediaControllerStateField;
+        private VisualElement _bcpOptionsContainer;
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -63,12 +66,9 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
                     if (!string.IsNullOrWhiteSpace(path))
                     {
-                        path = path.Replace("\\", "/");
-                        if (path.Contains("StreamingAssets/"))
-                            path = "./StreamingAssets/" + path.Split("StreamingAssets/")[1];
-
+                        path = MpfWranglerOptions.RealPathToSerializedPath(path);
                         var machineFolderProp = serializedObject.FindProperty(
-                            $"_mpfWrangler._machineFolder"
+                            $"_wranglerOptions._machineFolder"
                         );
                         machineFolderProp.stringValue = path;
                         serializedObject.ApplyModifiedProperties();
@@ -77,7 +77,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             );
 
             var getDescBtn = root.Q<Button>("get-machine-description");
-            var optionsBox = root.Q<GroupBox>("options");
+            var optionsBox = root.Q<VisualElement>("options");
             if (Application.isPlaying)
                 getDescBtn.SetEnabled(false);
 
@@ -85,13 +85,13 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
             getDescBtn.clicked += async () =>
             {
-                Undo.RecordObject(_mpfEngine, "Get machine description");
-                PrefabUtility.RecordPrefabInstancePropertyModifications(_mpfEngine);
                 if (_getMachineDescCts == null)
                 {
-                    _getMachineDescCts = new CancellationTokenSource();
+                    Undo.RecordObject(_mpfEngine, "Get machine description");
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(_mpfEngine);
                     getDescBtn.text = "Cancel";
                     optionsBox.SetEnabled(false);
+                    _getMachineDescCts = new CancellationTokenSource();
 
                     try
                     {
@@ -110,17 +110,15 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                     {
                         optionsBox.SetEnabled(true);
                         getDescBtn.text = getDescBtnDefaultText;
+                        getDescBtn.SetEnabled(true);
                         _getMachineDescCts?.Dispose();
                         _getMachineDescCts = null;
                     }
                 }
                 else
                 {
+                    getDescBtn.SetEnabled(false);
                     _getMachineDescCts?.Cancel();
-                    _getMachineDescCts?.Dispose();
-                    _getMachineDescCts = null;
-                    optionsBox.SetEnabled(true);
-                    getDescBtn.text = getDescBtnDefaultText;
                 }
             };
 
@@ -133,7 +131,8 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
                 if (
                     EditorUtility.DisplayDialog(
                         "Mission Pinball Framework",
-                        "This will clear all linked switches, coils and lamps and re-populate them. Are you sure you want to do that?",
+                        "This will clear all linked switches, coils and lamps and re-populate "
+                            + "them. Are you sure you want to do that?",
                         "Yes",
                         "No"
                     )
@@ -177,7 +176,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
             var startupBehaviorField = root.Q<PropertyField>("startup-behavior");
             var startupBehaviorProp = serializedObject.FindProperty(
-                "_mpfWrangler._startupBehavior"
+                "_wranglerOptions._startupBehavior"
             );
             _connectTimeoutField = root.Q<PropertyField>("connect-timeout");
             _connectDelayField = root.Q<PropertyField>("connect-delay");
@@ -188,7 +187,7 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             _commandLineOptionsContainer = root.Q<VisualElement>("command-line-options");
             _startupBehaviorOptionsContainer = root.Q<VisualElement>("startup-behavior-options");
             var executableSourceProp = serializedObject.FindProperty(
-                "_mpfWrangler._executableSource"
+                "_wranglerOptions._executableSource"
             );
             OnExecutableSourceChanged(executableSourceProp);
             _commandLineOptionsContainer.TrackPropertyValue(
@@ -198,11 +197,31 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
             MachineFolderValidationBoxes(machineFolderField);
 
+            _mpfStateField = root.Q<TextField>("mpf-state");
+            UpdateMpfStateField(_mpfEngine.MpfState);
+            _mpfEngine.MpfStateChanged += OnMpfStateChanged;
+
+            _mediaControllerStateField = root.Q<TextField>("media-controller-state");
+            UpdateBcpStateField(_mpfEngine.BcpState);
+            _mpfEngine.BcpStateChanged += OnBcpStateChanged;
+
+            _bcpOptionsContainer = root.Q<VisualElement>("bcp-options");
+            var mediaControllerProp = serializedObject.FindProperty(
+                "_wranglerOptions._mediaController"
+            );
+            UpdateMediaControllerUiVisibility(mediaControllerProp);
+            _bcpOptionsContainer.TrackPropertyValue(
+                mediaControllerProp,
+                UpdateMediaControllerUiVisibility
+            );
+
             return root;
         }
 
         private void OnDisable()
         {
+            _mpfEngine.MpfStateChanged -= OnMpfStateChanged;
+            _mpfEngine.BcpStateChanged -= OnBcpStateChanged;
             _getMachineDescCts?.Cancel();
             _getMachineDescCts?.Dispose();
             _getMachineDescCts = null;
@@ -259,9 +278,42 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             }
         }
 
+        private void OnMpfStateChanged(object sender, StateChangedEventArgs<MpfState> args)
+        {
+            UpdateMpfStateField(args.CurrentState);
+        }
+
+        private void UpdateMpfStateField(MpfState state)
+        {
+            _mpfStateField.value = state.ToString();
+        }
+
+        private void OnBcpStateChanged(
+            object sender,
+            StateChangedEventArgs<BcpConnectionState> args
+        )
+        {
+            UpdateBcpStateField(args.CurrentState);
+        }
+
+        private void UpdateBcpStateField(BcpConnectionState state)
+        {
+            _mediaControllerStateField.value = state.ToString();
+        }
+
+        private void UpdateMediaControllerUiVisibility(SerializedProperty mediaControllerProp)
+        {
+            var mediaController = (MpfMediaController)mediaControllerProp.enumValueIndex;
+            var usingIncludedMediaController = mediaController == MpfMediaController.Included;
+            _mediaControllerStateField.SetEnabled(usingIncludedMediaController);
+            _bcpOptionsContainer.SetEnabled(usingIncludedMediaController);
+        }
+
         private void MachineFolderValidationBoxes(VisualElement machineFolderField)
         {
-            var machineFolderProp = serializedObject.FindProperty($"_mpfWrangler._machineFolder");
+            var machineFolderProp = serializedObject.FindProperty(
+                "_wranglerOptions._machineFolder"
+            );
             var notAMachineFolderErrorBox = new HelpBox(
                 "The machine folder is not valid. It must contain a folder called 'config' "
                     + "with at least one .yaml file inside.",
@@ -281,7 +333,9 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
             void UpdateVisibility(SerializedProperty _)
             {
-                var machineFolder = _mpfEngine.MachineFolder;
+                var options = (MpfWranglerOptions)
+                    serializedObject.FindProperty("_wranglerOptions").boxedValue;
+                var machineFolder = options.MachineFolder;
                 var isMachineFolderInStreamingAssets = machineFolder.StartsWith(
                     Application.streamingAssetsPath
                 );
