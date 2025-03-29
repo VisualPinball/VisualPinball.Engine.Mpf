@@ -1,14 +1,14 @@
 {
   "name": "org.visualpinball.engine.missionpinball",
-  "version": "0.0.1-preview.19",
+  "version": "0.0.1-preview.32",
   "displayName": "Visual Pinball Engine (Mission Pinball Framework)",
   "description": "Mission Pinball Framework support",
   "keywords": [
     "Unity",
     "Mission Pinball Framework"
   ],
-  "unity": "2021.3",
-  "unityRelease": "0f1",
+  "unity": "6000.0",
+  "unityRelease": "37f1",
   "dependencies": {
     "org.visualpinball.engine.unity": "0.0.1-preview.119",
     "com.unity.textmeshpro": "3.0.9",
@@ -16,7 +16,8 @@
   },
   "author": "freezy <freezy@vpdb.io>",
   "contributors": [
-    "jsm174 <jsm174@gmail.com>"
+    "jsm174 <jsm174@gmail.com>",
+    "Arthur Kehrwald"
   ],
   "documentationUrl": "https://docs.visualpinball.org/plugins/mpf/",
   "changelogUrl": "https://docs.visualpinball.org/CHANGELOG.html",

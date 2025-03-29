@@ -357,5 +357,10 @@ VisualPinball.Engine.Mpf/machine/data/
 # macOS meta files
 *.DS_Store
 
-Dependencies/
-Dependencies.meta
+Plugins/*
+!Plugins/*.meta
+
+YetAnotherHttpHandler/
+
+Runtime/GrpcInterface/Generated/*
+!Runtime/GrpcInterface/Generated/*.meta
