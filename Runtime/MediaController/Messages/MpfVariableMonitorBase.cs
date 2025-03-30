@@ -28,7 +28,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages
 
         protected override bool MatchesMonitoringCriteria(TMessage msg)
         {
-            return base.MatchesMonitoringCriteria(msg) && msg.Name == _varName;
+            return base.MatchesMonitoringCriteria(msg) && !string.IsNullOrWhiteSpace(_varName) &&
+                   msg.Name == _varName;
         }
 
         protected override TVar GetValueFromMessage(TMessage msg)

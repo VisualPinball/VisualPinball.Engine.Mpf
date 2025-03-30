@@ -12,6 +12,7 @@
 using System;
 using UnityEngine;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Trigger;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.ObjectToggle
 {
@@ -29,9 +30,19 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.ObjectToggle
         private MpfEventListener _disableEventListener;
         private MpfEventListener _toggleEventListener;
 
+        private static Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
 
         private void Awake()
         {
+            if (string.IsNullOrWhiteSpace(_enableEvent) && string.IsNullOrWhiteSpace(_disableEvent))
+            {
+                Logger.Warn(
+                    "Both 'Enable Event' and 'Disable Event' are unspecified. The component 'Toggle On MPF Event' on "
+                    + $"game object '{gameObject.name}' won't do anything.");
+                return;
+            }
+
             if (!MpfGamelogicEngine.TryGetBcpInterface(this, out var bcpInterface)) return;
 
             if (_enableEvent == _disableEvent)
@@ -52,7 +63,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.ObjectToggle
         {
             // This is done in Start to give other components like this one attached to children of this game object a
             // chance to run their Awake functions.
-            gameObject.SetActive(_enabledOnStart);
+            if (_enableEventListener != null || _disableEventListener != null || _toggleEventListener != null)
+                gameObject.SetActive(_enabledOnStart);
         }
 
         private void OnDestroy()

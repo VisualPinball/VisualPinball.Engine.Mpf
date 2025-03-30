@@ -11,6 +11,7 @@
 
 using UnityEngine;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Mode;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.ObjectToggle
 {
@@ -25,8 +26,17 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.ObjectToggle
 
         private ModeMonitor _modeMonitor;
 
+        private static Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
         private void Awake()
         {
+            if (string.IsNullOrWhiteSpace(_mode))
+            {
+                Logger.Warn(
+                    "No MPF mode is specified. The component 'Enable During MPF Mode' on game object"
+                    + $" '{gameObject.name}' won't do anything.");
+            }
+
             if (!MpfGamelogicEngine.TryGetBcpInterface(this, out var bcpInterface)) return;
 
             _modeMonitor = new ModeMonitor(bcpInterface, _mode);
@@ -37,7 +47,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.ObjectToggle
         {
             // This is done in Start to give other components like this one attached to children of this game object a
             // chance to run their Awake functions.
-            gameObject.SetActive(false);
+            if (_modeMonitor != null)
+                gameObject.SetActive(false);
         }
 
         private void OnDestroy()
