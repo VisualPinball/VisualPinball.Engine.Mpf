@@ -1,6 +1,6 @@
 {
   "name": "org.visualpinball.engine.missionpinball",
-  "version": "0.0.1-preview.34",
+  "version": "0.0.1-preview.35",
   "displayName": "Visual Pinball Engine (Mission Pinball Framework)",
   "description": "Mission Pinball Framework support",
   "keywords": [
