@@ -47,9 +47,8 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
 
         private void UpdateHelpBoxVisibility()
         {
-            _box.style.display = _editor.targets.ToList().Any(IsParentObjectDisabled)
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
+            var showBoxes = !EditorApplication.isPlaying && _editor.targets.ToList().Any(IsParentObjectDisabled);
+            _box.style.display = showBoxes ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private static bool IsParentObjectDisabled(UnityEngine.Object target) =>
