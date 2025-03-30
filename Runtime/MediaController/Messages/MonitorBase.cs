@@ -18,25 +18,26 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages
         where TMessage : EventArgs
     {
         protected abstract string BcpCommand { get; }
-        private BcpInterface _bcpInterface;
-        private BcpMessageHandler<TMessage> _messageHandler;
+        private readonly BcpInterface _bcpInterface;
+        private readonly BcpMessageHandler<TMessage> _messageHandler;
 
         public event EventHandler<TVar> ValueChanged;
         private TVar _varValue;
+
         public TVar VarValue
         {
             get => _varValue;
             protected set
             {
                 WasEverUpdated = true;
-                if ((value == null && VarValue == null) || value != null && value.Equals(_varValue))
+                if ((value == null && VarValue == null) || value != null && Equals(value, VarValue))
                     return;
                 _varValue = value;
                 ValueChanged?.Invoke(this, _varValue);
             }
         }
 
-        public bool WasEverUpdated { get; private set; } = false;
+        public bool WasEverUpdated { get; private set; }
 
         protected MonitorBase(BcpInterface bcpInterface)
         {

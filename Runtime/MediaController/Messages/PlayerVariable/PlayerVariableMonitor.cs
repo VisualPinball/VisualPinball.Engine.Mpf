@@ -15,14 +15,14 @@ using VisualPinball.Engine.Mpf.Unity.MediaController.Messages.PlayerTurnStart;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.PlayerVariable
 {
-    public class PlayerVariableMonitor<VarType>
-        : MpfVariableMonitorBase<VarType, PlayerVariableMessage>
-        where VarType : IEquatable<VarType>
+    public class PlayerVariableMonitor<T>
+        : MpfVariableMonitorBase<T, PlayerVariableMessage>
+        where T : IEquatable<T>
     {
-        private CurrentPlayerMonitor _currentPlayerMonitor;
+        private readonly CurrentPlayerMonitor _currentPlayerMonitor;
 
         protected override string BcpCommand => PlayerVariableMessage.Command;
-        protected Dictionary<int, VarType> _varPerPlayer = new();
+        private readonly Dictionary<int, T> _varPerPlayer = new();
 
         public PlayerVariableMonitor(BcpInterface bcpInterface, string varName)
             : base(bcpInterface, varName)
@@ -47,16 +47,17 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.PlayerVariable
         {
             if (base.MatchesMonitoringCriteria(msg))
             {
-                VarType var = GetValueFromMessage(msg);
+                T var = GetValueFromMessage(msg);
                 _varPerPlayer[msg.PlayerNum] = var;
             }
+
             base.MessageHandler_Received(sender, msg);
         }
 
         protected override bool MatchesMonitoringCriteria(PlayerVariableMessage msg)
         {
             return base.MatchesMonitoringCriteria(msg)
-                && msg.PlayerNum == _currentPlayerMonitor.VarValue;
+                   && msg.PlayerNum == _currentPlayerMonitor.VarValue;
         }
     }
 }

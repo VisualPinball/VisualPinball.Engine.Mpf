@@ -11,7 +11,6 @@
 
 using System;
 using Newtonsoft.Json;
-using UnityEngine;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Device
 {
@@ -19,7 +18,7 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Device
         : MonitorBase<TMessage, DeviceMessage>
         where TMessage : SpecificDeviceMessageBase, IEquatable<TMessage>
     {
-        private string _deviceName;
+        private readonly string _deviceName;
 
         protected DeviceMonitor(BcpInterface bcpInterface, string deviceName)
             : base(bcpInterface)
@@ -29,17 +28,19 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Device
 
         protected override string BcpCommand => DeviceMessage.Command;
         protected abstract string Type { get; }
+
         protected delegate TMessage ParseStateDelegate(
             TDeviceState deserializedState,
             string deviceName
         );
+
         protected abstract ParseStateDelegate ParseState { get; }
 
         protected override bool MatchesMonitoringCriteria(DeviceMessage msg)
         {
             return base.MatchesMonitoringCriteria(msg)
-                && msg.Type == Type
-                && msg.Name == _deviceName;
+                   && msg.Type == Type
+                   && msg.Name == _deviceName;
         }
 
         protected override void MessageHandler_Received(object sender, DeviceMessage msg)
@@ -64,7 +65,7 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Device
             TMessage specificDeviceMessage = ParseState(deserializedState, msg.Name);
             return specificDeviceMessage;
         }
-
+        
         protected abstract void HandleAttributeChange(DeviceAttributeChange change);
     }
 }
