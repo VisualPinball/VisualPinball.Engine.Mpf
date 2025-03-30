@@ -59,10 +59,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Mode
 
         private void OnModeStarted(object sender, ModeStartMessage msg)
         {
-            if (msg.Name != _modeName)
-                return;
-
-            IsModeActive = true;
+            if (msg.Name != _modeName && !string.IsNullOrWhiteSpace(_modeName))
+                IsModeActive = true;
         }
 
         private void OnModeStopped(object sender, ModeStopMessage msg)

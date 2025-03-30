@@ -46,7 +46,7 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Trigger
 
         private void TriggerMessageHandler_Received(object sender, TriggerMessage msg)
         {
-            if (msg.TriggerName == _eventName)
+            if (msg.TriggerName == _eventName && !string.IsNullOrWhiteSpace(_eventName))
                 Triggered?.Invoke(this, EventArgs.Empty);
         }
     }

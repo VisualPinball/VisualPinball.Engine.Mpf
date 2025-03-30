@@ -13,14 +13,16 @@ using System;
 using UnityEngine;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Trigger;
 using VisualPinball.Unity;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Sound
 {
     [AddComponentMenu("Pinball/Sound/MPF Event Sound")]
     public class EventSound : EventSoundComponent<MpfEventListener, EventArgs>
     {
-        [SerializeField]
-        private string _eventName;
+        [SerializeField] private string _eventName;
+
+        private static Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         protected override void Subscribe(MpfEventListener eventSource)
         {
@@ -34,14 +36,18 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Sound
 
         protected override bool TryFindEventSource(out MpfEventListener eventSource)
         {
-            if (MpfGamelogicEngine.TryGetBcpInterface(this, out var bcpInterface))
+            eventSource = null;
+            if (string.IsNullOrWhiteSpace(_eventName))
             {
-                eventSource = new MpfEventListener(bcpInterface, _eventName);
-                return true;
+                Logger.Warn("No event name is specified. The component 'MPF Event Sound' on game object "
+                            + $"'{gameObject.name}' will not do anything.");
+                return false;
             }
 
-            eventSource = null;
-            return false;
+            if (!MpfGamelogicEngine.TryGetBcpInterface(this, out var bcpInterface))
+                return false;
+            eventSource = new MpfEventListener(bcpInterface, _eventName);
+            return true;
         }
     }
 }

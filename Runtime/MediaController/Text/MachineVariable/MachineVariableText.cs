@@ -13,19 +13,27 @@ using System;
 using UnityEngine;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages.MachineVariable;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Text
 {
     public abstract class MachineVariableText<T> : MonitoredVariableText<T, MachineVariableMessage>
         where T : IEquatable<T>, IConvertible
     {
-        [SerializeField]
-        private string _variableName;
+        [SerializeField] private string _variableName;
+
+        private static Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         protected override MonitorBase<T, MachineVariableMessage> CreateMonitor(
             BcpInterface bcpInterface
         )
         {
+            if (string.IsNullOrWhiteSpace(_variableName))
+            {
+                Logger.Warn("No MPF variable name is specified. The component 'MPF Machine Variable Text' on game "
+                            + $"object '{gameObject.name}' will not do anything.");
+            }
+
             return new MachineVariableMonitor<T>(bcpInterface, _variableName);
         }
     }

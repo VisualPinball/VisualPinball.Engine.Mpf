@@ -19,11 +19,9 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Text
     // This non-generic base class exists so there can be one inspector for all generic variations.
     public abstract class MonitoredVariableTextBase : MonoBehaviour
     {
-        [SerializeField]
-        protected TextMeshProUGUI _textField;
+        [SerializeField] protected TextMeshProUGUI _textField;
 
-        [SerializeField]
-        protected string _format = "{0}";
+        [SerializeField] protected string _format = "{0}";
     }
 
     public abstract class MonitoredVariableText<TVar, TMessage> : MonitoredVariableTextBase
@@ -36,12 +34,10 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Text
 
         private void OnEnable()
         {
-            if (MpfGamelogicEngine.TryGetBcpInterface(this, out var bcpInterface))
-            {
-                _monitor = CreateMonitor(bcpInterface);
-                SetText(_monitor.VarValue);
-                _monitor.ValueChanged += Monitor_ValueChanged;
-            }
+            if (!MpfGamelogicEngine.TryGetBcpInterface(this, out var bcpInterface)) return;
+            _monitor = CreateMonitor(bcpInterface);
+            SetText(_monitor.VarValue);
+            _monitor.ValueChanged += Monitor_ValueChanged;
         }
 
         private void OnDisable()
