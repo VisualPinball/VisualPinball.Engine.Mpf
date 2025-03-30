@@ -29,6 +29,7 @@ namespace VisualPinball.Engine.Mpf.Unity
     /// Allows the Mission Pinball Framework to drive VPE by sending switch changes to MPF
     /// and applying changes to coils, lights and hardware rules requested by MPF.
     /// </summary>
+    [AddComponentMenu("Pinball/Gamelogic Engine/MPF Game Logic")]
     public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine
     {
         [SerializeField]

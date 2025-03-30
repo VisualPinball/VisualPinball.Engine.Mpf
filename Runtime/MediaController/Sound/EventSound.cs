@@ -16,8 +16,8 @@ using VisualPinball.Unity;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Sound
 {
-    [AddComponentMenu("Visual Pinball/Sound/Mpf Event Sound")]
-    public class MpfEventSound : EventSoundComponent<MpfEventListener, EventArgs>
+    [AddComponentMenu("Pinball/Sound/MPF Event Sound")]
+    public class EventSound : EventSoundComponent<MpfEventListener, EventArgs>
     {
         [SerializeField]
         private string _eventName;

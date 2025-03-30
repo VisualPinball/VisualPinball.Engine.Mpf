@@ -15,8 +15,8 @@ using VisualPinball.Unity;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Sound
 {
-    [AddComponentMenu("Visual Pinball/Sound/Mpf Mode Sound")]
-    public class MpfModeSound : BinaryEventSoundComponent<ModeMonitor, bool>
+    [AddComponentMenu("Pinball/Sound/MPF Mode Sound")]
+    public class ModeSound : BinaryEventSoundComponent<ModeMonitor, bool>
     {
         [SerializeField]
         private string _modeName;

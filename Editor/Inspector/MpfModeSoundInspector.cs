@@ -17,7 +17,7 @@ using VisualPinball.Unity.Editor;
 
 namespace VisualPinball.Engine.Mpf.Unity.Editor
 {
-    [CustomEditor(typeof(MpfModeSound)), CanEditMultipleObjects]
+    [CustomEditor(typeof(ModeSound)), CanEditMultipleObjects]
     public class MpfModeSoundInspector : BinaryEventSoundInspector
     {
         [SerializeField]

@@ -9,11 +9,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using UnityEngine;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages.PlayerAdded;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Text
 {
+    [AddComponentMenu("Pinball/MPF Media Controller/MPF Player Count Text")]
     public class PlayerCountText : MonitoredVariableText<int, PlayerAddedMessage>
     {
         protected override MonitorBase<int, PlayerAddedMessage> CreateMonitor(
