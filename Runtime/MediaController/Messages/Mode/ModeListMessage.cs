@@ -10,7 +10,6 @@
 // SOFTWARE.
 
 using System;
-using System.Collections.ObjectModel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -20,12 +19,11 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Mode
     {
         public const string Command = "mode_list";
         public const string RunningModesParamName = "running_modes";
-        public ReadOnlyCollection<Mode> RunningModes => Array.AsReadOnly(_runningModes);
-        private readonly Mode[] _runningModes;
+        public readonly ModeList RunningModes;
 
-        public ModeListMessage(Mode[] runningModes)
+        public ModeListMessage(ModeList runningModes)
         {
-            _runningModes = runningModes;
+            RunningModes = runningModes;
         }
 
         public static ModeListMessage FromGenericMessage(BcpMessage bcpMessage)
@@ -33,9 +31,9 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Mode
             try
             {
                 var jArr = bcpMessage.GetParamValue<JArray>(RunningModesParamName);
-                Mode[] runningModes = new Mode[jArr.Count];
+                var runningModes = new Mode[jArr.Count];
 
-                for (int i = 0; i < jArr.Count; i++)
+                for (var i = 0; i < jArr.Count; i++)
                 {
                     var modeJArr = (JArray)jArr[i];
                     var modeName = (string)modeJArr[0];
@@ -43,15 +41,12 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Mode
                     runningModes[i] = new Mode(modeName, modePrio);
                 }
 
-                return new ModeListMessage(runningModes);
+                return new ModeListMessage(new ModeList(Array.AsReadOnly(runningModes)));
             }
             catch (Exception e)
-                when (e is JsonException
-                    || e is InvalidCastException
-                    || e is IndexOutOfRangeException
-                )
+                when (e is JsonException or InvalidCastException or IndexOutOfRangeException)
             {
-                throw new ParameterException(RunningModesParamName, null, e);
+                throw new ParameterException(RunningModesParamName, bcpMessage, e);
             }
         }
     }
