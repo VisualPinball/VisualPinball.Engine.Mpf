@@ -16,6 +16,7 @@ using VisualPinball.Engine.Mpf.Unity.MediaController.Messages;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Text
 {
+    // This non-generic base class exists so there can be one inspector for all generic variations.
     public abstract class MonitoredVariableTextBase : MonoBehaviour
     {
         [SerializeField]
