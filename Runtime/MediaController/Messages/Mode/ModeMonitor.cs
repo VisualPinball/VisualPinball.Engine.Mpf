@@ -10,13 +10,13 @@
 // SOFTWARE.
 
 using System;
-using UnityEngine;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Mode
 {
+    // Does not derive from <c>MonitorBase</c> because it needs to listen receive two different message types
     public class ModeMonitor : IDisposable
     {
-        private string _modeName;
+        private readonly string _modeName;
         private BcpMessageHandler<ModeStartMessage> _modeStartMessageHandler;
         private BcpMessageHandler<ModeStopMessage> _modeStopMessageHandler;
 

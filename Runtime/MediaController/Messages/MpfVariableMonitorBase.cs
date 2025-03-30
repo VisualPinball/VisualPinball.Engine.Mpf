@@ -10,15 +10,15 @@
 // SOFTWARE.
 
 using System;
-using UnityEngine;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages
 {
-    public abstract class MpfVariableMonitorBase<TVar, TMessage> : MonitorBase<TVar, TMessage>
+    public abstract class
+        MpfVariableMonitorBase<TVar, TMessage> : MonitorBase<TVar, TMessage>
         where TVar : IEquatable<TVar>
         where TMessage : MpfVariableMessageBase
     {
-        protected string _varName;
+        private readonly string _varName;
 
         protected MpfVariableMonitorBase(BcpInterface bcpInterface, string varName)
             : base(bcpInterface)
@@ -38,11 +38,7 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages
                 return (TVar)Convert.ChangeType(msg.Value, typeof(TVar));
             }
             catch (Exception e)
-                when (e is InvalidCastException
-                    || e is FormatException
-                    || e is OverflowException
-                    || e is ArgumentNullException
-                )
+                when (e is InvalidCastException or FormatException or OverflowException or ArgumentNullException)
             {
                 throw new ParameterException(MpfVariableMessageBase.ValueParamName, null, e);
             }

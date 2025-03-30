@@ -13,8 +13,8 @@ using System;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.MachineVariable
 {
-    public class MachineVariableMonitor<TVar> : MpfVariableMonitorBase<TVar, MachineVariableMessage>
-        where TVar : IEquatable<TVar>
+    public class MachineVariableMonitor<T> : MpfVariableMonitorBase<T, MachineVariableMessage>
+        where T : IEquatable<T>
     {
         public MachineVariableMonitor(BcpInterface bcpInterface, string varName)
             : base(bcpInterface, varName) { }
