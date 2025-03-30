@@ -9,34 +9,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-using System;
-
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Mode
 {
-    public readonly struct Mode : IEquatable<Mode>
+    public class ModeListMonitor : MonitorBase<ModeList, ModeListMessage>
     {
-        public readonly string Name;
-        public readonly int Priority;
-
-        public Mode(string name, int priority)
+        public ModeListMonitor(BcpInterface bcpInterface) : base(bcpInterface)
         {
-            Name = name;
-            Priority = priority;
         }
 
-        public bool Equals(Mode other)
-        {
-            return Name == other.Name && Priority == other.Priority;
-        }
+        protected override string BcpCommand => ModeListMessage.Command;
 
-        public override bool Equals(object obj)
-        {
-            return obj is Mode other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Name, Priority);
-        }
+        protected override ModeList GetValueFromMessage(ModeListMessage msg) => msg.RunningModes;
     }
 }
