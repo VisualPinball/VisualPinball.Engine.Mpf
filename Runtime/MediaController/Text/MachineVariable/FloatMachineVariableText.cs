@@ -9,7 +9,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using UnityEngine;
+
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Text
 {
+    [AddComponentMenu("Pinball/MPF Media Controller/MPF Machine Variable Text (Float)")]
     public class FloatMachineVariableText : MachineVariableText<float> { }
 }

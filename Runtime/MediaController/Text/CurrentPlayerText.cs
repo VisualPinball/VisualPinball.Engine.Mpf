@@ -9,11 +9,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using UnityEngine;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages;
 using VisualPinball.Engine.Mpf.Unity.MediaController.Messages.PlayerTurnStart;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Text
 {
+    [AddComponentMenu("Pinball/MPF Media Controller/MPF Current Player Text")]
     public class CurrentPlayerText : MonitoredVariableText<int, PlayerTurnStartMessage>
     {
         protected override MonitorBase<int, PlayerTurnStartMessage> CreateMonitor(

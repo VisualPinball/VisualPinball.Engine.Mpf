@@ -14,9 +14,11 @@ using UnityEngine;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Trigger
 {
+    /// <summary>
+    /// Provides an event handler for arbitrary MPF events
+    /// </summary>
     public class MpfEventListener : IDisposable
     {
-        [SerializeField]
         private string _eventName;
 
         private BcpInterface _bcpInterface;
