@@ -17,16 +17,16 @@ using VisualPinball.Unity.Editor;
 
 namespace VisualPinball.Engine.Mpf.Unity.Editor
 {
-    [CustomEditor(typeof(EventSound)), CanEditMultipleObjects]
-    public class MpfEventSoundInspector : SoundComponentInspector
+    [CustomEditor(typeof(ModeSound)), CanEditMultipleObjects]
+    public class ModeSoundInspector : BinaryEventSoundInspector
     {
         [SerializeField]
-        private VisualTreeAsset mpfEventSoundInspectorXml;
+        private VisualTreeAsset mpfModeSoundInspectorXml;
 
         public override VisualElement CreateInspectorGUI()
         {
             var root = base.CreateInspectorGUI();
-            var inspectorUi = mpfEventSoundInspectorXml.Instantiate();
+            var inspectorUi = mpfModeSoundInspectorXml.Instantiate();
             root.Add(inspectorUi);
             return root;
         }
