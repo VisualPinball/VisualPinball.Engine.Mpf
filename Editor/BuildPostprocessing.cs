@@ -116,6 +116,12 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
         {
             Logger.Info("Removing log files and audits from machine folder...");
 
+            if (!Directory.Exists(streamingAssetsPath))
+            {
+                Logger.Info("StreamingAssets folder does not exist. Skipping machine folder cleanup.");
+                return;
+            }
+
             var machineFolders = Directory
                 .GetDirectories(streamingAssetsPath)
                 .Where((dir) => File.Exists(Path.Combine(dir, "config", "config.yaml")));
@@ -124,9 +130,12 @@ namespace VisualPinball.Engine.Mpf.Unity.Editor
             {
                 // Delete log files from previous runs
                 var logDir = Path.Combine(mf, "logs");
-                var logFiles = Directory.GetFiles(logDir, "*.log", SearchOption.TopDirectoryOnly);
-                foreach (var logFile in logFiles)
-                    File.Delete(logFile);
+                if (Directory.Exists(logDir))
+                {
+                    var logFiles = Directory.GetFiles(logDir, "*.log", SearchOption.TopDirectoryOnly);
+                    foreach (var logFile in logFiles)
+                        File.Delete(logFile);
+                }
 
                 // Delete audits file (contains statistics about previous runs)
                 var auditsFile = Path.Combine(mf, "data", "audits.yaml");

@@ -7,11 +7,11 @@
     "Unity",
     "Mission Pinball Framework"
   ],
-  "unity": "6000.0",
-  "unityRelease": "37f1",
+  "unity": "6000.5",
+  "unityRelease": "0f1",
   "dependencies": {
     "org.visualpinball.engine.unity": "0.0.1-preview.119",
-    "com.unity.textmeshpro": "3.0.9",
+    "com.unity.textmeshpro": "5.0.0",
     "com.unity.nuget.newtonsoft-json": "3.2.1"
   },
   "author": "freezy <freezy@vpdb.io>",

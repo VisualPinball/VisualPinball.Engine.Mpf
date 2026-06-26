@@ -30,7 +30,7 @@ namespace VisualPinball.Engine.Mpf.Unity
     /// and applying changes to coils, lights and hardware rules requested by MPF.
     /// </summary>
     [AddComponentMenu("Pinball/Gamelogic Engine/MPF Game Logic")]
-    public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine
+    public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine, IGamelogicInputThreading
     {
         [SerializeField]
         private MpfWranglerOptions _wranglerOptions;
@@ -108,6 +108,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public string Name => "Mission Pinball Framework";
+        public GamelogicInputDispatchMode SwitchDispatchMode => GamelogicInputDispatchMode.MainThread;
         public GamelogicEngineSwitch[] RequestedSwitches => _requestedSwitches;
         public GamelogicEngineLamp[] RequestedLamps => _requestedLamps;
         public GamelogicEngineCoil[] RequestedCoils => _requestedCoils;
