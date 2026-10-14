@@ -431,6 +431,9 @@ namespace VisualPinball.Engine.Mpf.Unity
             else
             {
                 _nativeOutputs = null;
+                // Release the last listener too, so a detached plugin is not kept alive by the engine.
+                if (_nativeOutputSink != null)
+                    _nativeOutputSink.Listener = null;
                 _nativeOutputModel.Detach();
             }
         }
