@@ -20,6 +20,7 @@ using NUnit.Framework.Constraints;
 using UnityEngine;
 using VisualPinball.Engine.Game.Engines;
 using VisualPinball.Engine.Mpf.Unity.MediaController;
+using VisualPinball.Plugins;
 using VisualPinball.Unity;
 using Logger = NLog.Logger;
 
@@ -30,7 +31,11 @@ namespace VisualPinball.Engine.Mpf.Unity
     /// and applying changes to coils, lights and hardware rules requested by MPF.
     /// </summary>
     [AddComponentMenu("Pinball/Gamelogic Engine/MPF Game Logic")]
-    public class MpfGamelogicEngine : MonoBehaviour, IGamelogicEngine, IGamelogicInputThreading
+    public class MpfGamelogicEngine
+        : MonoBehaviour,
+            IGamelogicEngine,
+            IGamelogicInputThreading,
+            IGamelogicNativeOutputs
     {
         [SerializeField]
         private MpfWranglerOptions _wranglerOptions;
@@ -106,6 +111,10 @@ namespace VisualPinball.Engine.Mpf.Unity
         }
         private Player _player;
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        private readonly MpfOutputModel _nativeOutputModel = new(MonotonicMs);
+        private NativeOutputSink _nativeOutputSink;
+        private INativeOutputListener _nativeOutputs;
 
         public string Name => "Mission Pinball Framework";
         public GamelogicInputDispatchMode SwitchDispatchMode => GamelogicInputDispatchMode.MainThread;
@@ -366,6 +375,10 @@ namespace VisualPinball.Engine.Mpf.Unity
         {
             OnSwitchChanged?.Invoke(this, new SwitchEventArgs2(id, isClosed));
 
+            // VPE runs MPF's hardware rules as wires, so their coils only show up here.
+            if (_mpfSwitchNumbers.TryGetNumberByName(id, out var ruleSwitchNumber))
+                _nativeOutputModel.EnqueueSwitch(ruleSwitchNumber, isClosed);
+
             if (_mpfSwitchNumbers.ContainsName(id))
             {
                 if (MpfWrangler.MpfState == MpfState.Connected)
@@ -391,6 +404,93 @@ namespace VisualPinball.Engine.Mpf.Unity
                     $"Switch '{id}' is defined in the MPF game logic engine but not"
                         + $" associated with an MPF number. State change cannot be forwarded to MPF."
                 );
+            }
+        }
+
+        private void Update()
+        {
+            DispatchNativeOutputs();
+        }
+
+        /// <summary>
+        /// Reports every light and coil MPF drives by its machine config number, including
+        /// outputs the table does not map. See <see cref="MpfOutputModel"/> for the numbering.
+        /// </summary>
+        /// <remarks>
+        /// Called on the main thread, like <see cref="Update"/>. The model only queues MPF
+        /// commands while attached and checks that under its queue lock, so a command that races
+        /// with the detach cannot reach the next listener.
+        /// </remarks>
+        public void SetNativeOutputListener(INativeOutputListener listener)
+        {
+            if (listener != null)
+            {
+                _nativeOutputModel.Attach();
+                _nativeOutputs = listener;
+            }
+            else
+            {
+                _nativeOutputs = null;
+                _nativeOutputModel.Detach();
+            }
+        }
+
+        private void DispatchNativeOutputs()
+        {
+            var listener = _nativeOutputs;
+            if (listener == null)
+                return;
+            _nativeOutputSink ??= new NativeOutputSink();
+            _nativeOutputSink.Listener = listener;
+            _nativeOutputModel.Poll(_nativeOutputSink);
+            listener.NativeOutputPollEnd();
+        }
+
+        private static double MonotonicMs() =>
+            System.Diagnostics.Stopwatch.GetTimestamp()
+            * 1000d
+            / System.Diagnostics.Stopwatch.Frequency;
+
+        /// <summary>
+        /// MPF lights are dimmable channels (brightness 0..1, faded by <see cref="MpfOutputModel"/>);
+        /// MPF coils are switched on and off by the VPE platform.
+        /// </summary>
+        private sealed class NativeOutputSink : IMpfOutputSink
+        {
+            public INativeOutputListener Listener;
+
+            public void OutputChanged(MpfOutputKind kind, int number, double value)
+            {
+                switch (kind)
+                {
+                    case MpfOutputKind.Coil:
+                        Listener.NativeOutputChanged(
+                            ControllerEventKind.Coil,
+                            number,
+                            value,
+                            ControllerValueSemantics.Binary,
+                            1d
+                        );
+                        break;
+                    case MpfOutputKind.GeneralIllumination:
+                        Listener.NativeOutputChanged(
+                            ControllerEventKind.GeneralIllumination,
+                            number,
+                            value,
+                            ControllerValueSemantics.Physical,
+                            1d
+                        );
+                        break;
+                    default:
+                        Listener.NativeOutputChanged(
+                            ControllerEventKind.Lamp,
+                            number,
+                            value,
+                            ControllerValueSemantics.Physical,
+                            1d
+                        );
+                        break;
+                }
             }
         }
 
@@ -444,6 +544,13 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private void ExecuteMpfFadeLightRequest(object sender, FadeLightRequest request)
         {
+            foreach (var fade in request.Fades)
+                _nativeOutputModel.EnqueueFade(
+                    fade.LightNumber,
+                    fade.TargetBrightness,
+                    request.CommonFadeMs
+                );
+
             var args = new List<LampEventArgs>();
             foreach (var fade in request.Fades)
             {
@@ -460,6 +567,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private void ExecuteMpfPulseCoilRequest(object sender, PulseCoilRequest request)
         {
+            _nativeOutputModel.EnqueuePulse(request.CoilNumber, request.PulseMs);
+
             if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
             {
                 SetCoil(coilName, true);
@@ -474,6 +583,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private void ExecuteMpfEnableCoilRequest(object sender, EnableCoilRequest request)
         {
+            _nativeOutputModel.EnqueueEnable(request.CoilNumber);
+
             if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
                 SetCoil(coilName, true);
             else
@@ -485,6 +596,8 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private void ExecuteMpfCommandDisableCoilRequest(object sender, DisableCoilRequest request)
         {
+            _nativeOutputModel.EnqueueDisable(request.CoilNumber);
+
             if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
                 SetCoil(coilName, false);
             else
@@ -501,6 +614,12 @@ namespace VisualPinball.Engine.Mpf.Unity
         {
             var switchNumber = request.SwitchNumber;
             var coilNumber = request.CoilNumber;
+            _nativeOutputModel.ConfigureRule(
+                switchNumber,
+                coilNumber,
+                request.PulseMs,
+                request.HoldPower
+            );
             if (
                 _mpfSwitchNumbers.TryGetNameByNumber(switchNumber, out var switchName)
                 && _mpfCoilNumbers.TryGetNameByNumber(coilNumber, out var coilName)
@@ -521,6 +640,7 @@ namespace VisualPinball.Engine.Mpf.Unity
         {
             var switchNumber = request.SwitchNumber;
             var coilNumber = request.CoilNumber;
+            _nativeOutputModel.RemoveRule(switchNumber, coilNumber);
             if (
                 _mpfSwitchNumbers.TryGetNameByNumber(switchNumber, out var switchName)
                 && _mpfCoilNumbers.TryGetNameByNumber(coilNumber, out var coilName)
