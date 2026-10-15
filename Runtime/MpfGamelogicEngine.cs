@@ -116,11 +116,12 @@ namespace VisualPinball.Engine.Mpf.Unity
         }
         private Player _player;
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        private static readonly LogOncePerKey<string> UnmappedSwitchLog = new();
-        private static readonly LogOncePerKey<string> UnknownLampNumberLog = new();
-        private static readonly LogOncePerKey<string> UnknownCoilNumberLog = new();
-        private static readonly LogOncePerKey<string> UnknownHardwareRuleLog = new();
-        private static readonly LogOncePerKey<string> SegmentDisplayLog = new();
+        // per engine, so one table's mapping problems don't hide the next one's
+        private readonly LogOncePerKey<string> _unmappedSwitchLog = new();
+        private readonly LogOncePerKey<string> _unknownLampNumberLog = new();
+        private readonly LogOncePerKey<string> _unknownCoilNumberLog = new();
+        private readonly LogOncePerKey<string> _unknownHardwareRuleLog = new();
+        private readonly LogOncePerKey<string> _segmentDisplayLog = new();
         private static readonly LogThrottle SwitchNotSentThrottle = new(3, TimeSpan.FromSeconds(30));
         private static readonly LogThrottle SwitchSendFailedThrottle = new(3, TimeSpan.FromSeconds(30));
 
@@ -555,7 +556,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                             );
                     }
                 }
-                else if (UnmappedSwitchLog.ShouldLog(id))
+                else if (_unmappedSwitchLog.ShouldLog(id))
                 {
                     Logger.Warn(
                         "Switch {SwitchId} has no MPF number, so its changes are not sent to MPF. Click "
@@ -791,7 +792,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             {
                 if (_mpfLampNumbers.TryGetNameByNumber(fade.LightNumber, out var lampName))
                     args.Add(new LampEventArgs(lampName, fade.TargetBrightness));
-                else if (UnknownLampNumberLog.ShouldLog(fade.LightNumber))
+                else if (_unknownLampNumberLog.ShouldLog(fade.LightNumber))
                     Logger.Warn(
                         "MPF drives light number {LightNumber}, which VPE has no lamp for. Update the "
                             + "machine description in the MPF gamelogic engine inspector. Further "
@@ -874,9 +875,9 @@ namespace VisualPinball.Engine.Mpf.Unity
                 LogUnknownHardwareRule(switchNumber, coilNumber);
         }
 
-        private static void LogUnknownCoilNumber(string coilNumber)
+        private void LogUnknownCoilNumber(string coilNumber)
         {
-            if (UnknownCoilNumberLog.ShouldLog(coilNumber))
+            if (_unknownCoilNumberLog.ShouldLog(coilNumber))
                 Logger.Warn(
                     "MPF drives coil number {CoilNumber}, which VPE has no coil for. Update the "
                         + "machine description in the MPF gamelogic engine inspector. Further "
@@ -887,7 +888,7 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private void LogUnknownHardwareRule(string switchNumber, string coilNumber)
         {
-            if (!UnknownHardwareRuleLog.ShouldLog(switchNumber + "/" + coilNumber))
+            if (!_unknownHardwareRuleLog.ShouldLog(switchNumber + "/" + coilNumber))
                 return;
             Logger.Warn(
                 "MPF configured a hardware rule for switch number {SwitchNumber} and coil number "
@@ -914,7 +915,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             SetSegmentDisplayFrameRequest request
         )
         {
-            if (SegmentDisplayLog.ShouldLog(request.Name ?? ""))
+            if (_segmentDisplayLog.ShouldLog(request.Name ?? ""))
                 Logger.Warn(
                     "MPF sent a frame for segment display {Display}, but VPE's MPF integration doesn't "
                         + "support segment displays yet. Further frames are ignored silently.",
