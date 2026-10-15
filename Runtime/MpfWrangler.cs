@@ -217,6 +217,70 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+        // MPF's own output (stdout/stderr), when it's not shown in a terminal window
+        private static readonly Logger ProcessLogger = LogManager.GetLogger("Mpf.Process");
+        private static readonly LogThrottle ProcessWarnThrottle = new(200, TimeSpan.FromSeconds(1));
+        private static readonly LogThrottle EmptyCommandThrottle = new(3, TimeSpan.FromSeconds(30));
+        private static readonly LogThrottle CommandHandlerFailedThrottle = new(3, TimeSpan.FromSeconds(30));
+        private static readonly LogOncePerKey<int> UnknownCommandLog = new();
+
+        private string _startupStep;
+        private string _machineFolder;
+        private volatile bool _processExitExpected;
+        private bool _launchedViaTerminal;
+        private bool _echoOutputToConsole;
+        private bool _inStdErrTraceback;
+
+        /// <summary>
+        /// MPF's version, as reported when VPE connected to it. Null until then, and with
+        /// <see cref="MpfStartupBehavior.DelayConnection"/>, which doesn't ask.
+        /// </summary>
+        public string MpfVersion { get; private set; }
+
+        /// <summary>
+        /// The MPF executable that was started last, or null if none was.
+        /// </summary>
+        public string ExecutablePath { get; private set; }
+
+        /// <summary>
+        /// The command line arguments MPF was started with last.
+        /// </summary>
+        public string Arguments { get; private set; }
+
+        /// <summary>
+        /// Why the last start failed, or null.
+        /// </summary>
+        public string StartupError { get; private set; }
+
+        /// <summary>
+        /// MPF's exit code, once it exited.
+        /// </summary>
+        public int? ExitCode { get; private set; }
+
+        /// <summary>
+        /// Whether MPF's output is captured into the log (logger <c>Mpf.Process</c>). When MPF
+        /// runs in a terminal window, it isn't, and <see cref="MpfLogFolder"/> has its log.
+        /// </summary>
+        public bool OutputCaptured { get; private set; }
+
+        /// <summary>
+        /// Where MPF writes its own log files.
+        /// </summary>
+        public string MpfLogFolder
+        {
+            get
+            {
+                // resolving the machine folder needs the main thread, so it's cached when MPF starts
+                var machineFolder = _machineFolder ?? _options.MachineFolder;
+                return string.IsNullOrEmpty(machineFolder) ? null : Path.Combine(machineFolder, "logs");
+            }
+        }
+
+        /// <summary>
+        /// The output type actually used. Release builds never show MPF's terminal.
+        /// </summary>
+        public MpfOutputType EffectiveOutputType => OutputTypeOverride;
+
         public MpfState MpfState
         {
             get => _mpfState;
@@ -260,13 +324,24 @@ namespace VisualPinball.Engine.Mpf.Unity
             try
             {
                 MpfState = MpfState.Starting;
+                StartupError = null;
+                _machineFolder = _options.MachineFolder;
 
                 if (_options.ExecutableSource != MpfExecutableSource.AssumeRunning)
                 {
+                    _startupStep = "starting the MPF process";
                     KillAllMpfProcesses();
                     _mpfProcess = StartMpfProcess();
                 }
+                else
+                {
+                    Logger.Info(
+                        "Connecting to an MPF instance that is expected to be running already, at {Address:l}",
+                        _grpcAddress
+                    );
+                }
 
+                _startupStep = "connecting to MPF";
                 if (_options.MediaController == MpfMediaController.Included)
                     await Task.WhenAll(BcpInterface.StartServer(), ConnectToMpf(initialState, ct));
                 else
@@ -274,13 +349,20 @@ namespace VisualPinball.Engine.Mpf.Unity
             }
             catch (Exception ex)
             {
+                LogStartupFailure(ex);
                 try
                 {
                     if (_options.MediaController == MpfMediaController.Included)
                         await BcpInterface.StopServer();
                 }
+                catch (Exception stopEx)
+                {
+                    // the start failure is what counts, it's rethrown below
+                    Logger.Debug(stopEx, "Stopping the BCP server after the failed MPF start failed too.");
+                }
                 finally
                 {
+                    _processExitExpected = true;
                     if (_mpfProcess != null && !_mpfProcess.HasExited)
                         _mpfProcess.Kill();
 
@@ -297,9 +379,8 @@ namespace VisualPinball.Engine.Mpf.Unity
                     {
                         _startStopSemaphore.Ref.Release();
                     }
-
-                    throw ex;
                 }
+                throw;
             }
 
             try
@@ -354,6 +435,8 @@ namespace VisualPinball.Engine.Mpf.Unity
                 return;
             }
 
+            _processExitExpected = true;
+            Logger.Info("Stopping MPF");
             try
             {
                 MpfState = MpfState.Stopping;
@@ -410,7 +493,10 @@ namespace VisualPinball.Engine.Mpf.Unity
                                         ) != processExited.Task
                                         && !_mpfProcess.HasExited
                                     )
+                                    {
+                                        Logger.Info("MPF didn't quit within a second, killing it.");
                                         _mpfProcess.Kill();
+                                    }
                                 }
                             }
                             finally
@@ -444,14 +530,33 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         private Process StartMpfProcess()
         {
+            var executable = GetExecutablePath();
+            var machineFolder = _machineFolder;
+            ExecutablePath = executable;
+            Arguments = GetCmdArgs(machineFolder);
+            ExitCode = null;
+
+            if (_options.ExecutableSource == MpfExecutableSource.Included && !File.Exists(executable))
+                throw new FileNotFoundException(
+                    $"The MPF executable included with VPE is missing at {executable}.",
+                    executable
+                );
+            if (!Directory.Exists(machineFolder))
+                Logger.Warn(
+                    "MPF machine folder {MachineFolder:l} does not exist, so MPF won't find its config.",
+                    machineFolder
+                );
+
             var process = new Process();
-            process.StartInfo.FileName = GetExecutablePath();
-            process.StartInfo.Arguments = GetCmdArgs(_options.MachineFolder);
+            process.StartInfo.FileName = executable;
+            process.StartInfo.Arguments = Arguments;
             // Make sure the MPF window does not pop up in release builds
+            var outputType = OutputTypeOverride;
             var createWindow =
-                OutputTypeOverride is MpfOutputType.LogInTerminal or MpfOutputType.TableInTerminal;
+                outputType is MpfOutputType.LogInTerminal or MpfOutputType.TableInTerminal;
             process.StartInfo.UseShellExecute = createWindow;
             process.StartInfo.CreateNoWindow = !createWindow;
+            _launchedViaTerminal = false;
 
             if (createWindow)
             {
@@ -460,6 +565,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                 process.StartInfo.Arguments =
                     $"-e {process.StartInfo.FileName} {process.StartInfo.Arguments}";
                 process.StartInfo.FileName = "x-terminal-emulator";
+                _launchedViaTerminal = true;
 #elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
                 // There is no way to pass arguments trough the macOS terminal,
                 // so create a temporary shell script that contains the arguments.
@@ -474,48 +580,180 @@ namespace VisualPinball.Engine.Mpf.Unity
                 Process.Start("chmod", $"u+x {tmpScriptPath}");
                 process.StartInfo.Arguments = $"-a Terminal {tmpScriptPath}";
                 process.StartInfo.FileName = "open";
+                _launchedViaTerminal = true;
 #endif
             }
             else
             {
+                // Always read what MPF writes: a redirected pipe that nobody reads fills up and
+                // blocks MPF. It goes to the log, so a user's report includes it.
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.RedirectStandardOutput = true;
-
-                if (OutputTypeOverride == MpfOutputType.LogInUnityConsole)
-                {
-                    process.OutputDataReceived += new DataReceivedEventHandler(
-                        (sender, e) => Logger.Info($"MPF: {e.Data}")
-                    );
-
-                    process.ErrorDataReceived += new DataReceivedEventHandler(
-                        (sender, e) =>
-                        {
-                            if (e.Data == null)
-                                return;
-                            // For some reason, all (?) output from MPF is routed to this error handler,
-                            // so filter manually. This is obviously flawed and will sometimes fail
-                            // to recognize errors.
-                            // https://github.com/missionpinball/mpf/issues/1866
-                            if (e.Data.Contains("ERROR") || e.Data.Contains("Exception"))
-                                Logger.Error($"MPF: {e.Data}");
-                            else if (e.Data.Contains("WARNING"))
-                                Logger.Warn($"MPF: {e.Data}");
-                            else
-                                Logger.Info($"MPF: {e.Data}");
-                        }
-                    );
-                }
+                _echoOutputToConsole = outputType == MpfOutputType.LogInUnityConsole;
+                _inStdErrTraceback = false;
+                process.OutputDataReceived += (sender, e) => LogProcessOutput(e.Data, false);
+                process.ErrorDataReceived += (sender, e) => LogProcessOutput(e.Data, true);
             }
+
+            process.EnableRaisingEvents = true;
+            process.Exited += (sender, args) => OnProcessExited(process);
+            _processExitExpected = false;
+            OutputCaptured = !createWindow;
 
             process.Start();
 
-            if (OutputTypeOverride == MpfOutputType.LogInUnityConsole)
+            if (OutputCaptured)
             {
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
             }
 
+            Logger.Info(
+                "Started MPF (pid {Pid}): {Executable:l} {Arguments:l}, machine folder {MachineFolder:l}, "
+                    + "output {OutputType}, media controller {MediaController}, MPF's own log in {MpfLogFolder:l}",
+                process.Id,
+                process.StartInfo.FileName,
+                process.StartInfo.Arguments,
+                machineFolder,
+                outputType,
+                _options.MediaController,
+                MpfLogFolder
+            );
+
             return process;
+        }
+
+        /// <summary>
+        /// Logs a line MPF wrote. Called on a thread pool thread, one line at a time per stream.
+        /// </summary>
+        /// <remarks>
+        /// MPF writes all of its log to stderr (https://github.com/missionpinball/mpf/issues/1866),
+        /// so the level is guessed from the text. Errors in there come from the machine config or
+        /// the game code, not from VPE, so they're warnings here.
+        /// </remarks>
+        private void LogProcessOutput(string line, bool fromStdErr)
+        {
+            if (line == null)
+                return;
+
+            var warn = fromStdErr && IsProblemLine(line, ref _inStdErrTraceback);
+            if (warn)
+            {
+                if (ProcessWarnThrottle.ShouldLog(out var suppressed))
+                {
+                    if (suppressed == 0)
+                        ProcessLogger.Warn("{Line:l}", line);
+                    else
+                        ProcessLogger.Warn(
+                            "{Line:l} ({Suppressed} lines suppressed before)",
+                            line,
+                            suppressed
+                        );
+                }
+            }
+            else if (_echoOutputToConsole)
+                // the user chose to see MPF's output in the Unity console
+                ProcessLogger.Info("{Line:l}", line);
+            else if (ProcessLogger.IsDebugEnabled)
+                ProcessLogger.Debug("{Line:l}", line);
+        }
+
+        /// <summary>
+        /// Whether a line of Python output reports a problem. Lines of a traceback count too.
+        /// </summary>
+        private static bool IsProblemLine(string line, ref bool inTraceback)
+        {
+            if (line.StartsWith("Traceback (most recent call last)", StringComparison.Ordinal))
+            {
+                inTraceback = true;
+                return true;
+            }
+            if (inTraceback)
+            {
+                // indented lines are the stack, the first one that isn't is the exception
+                if (line.Length > 0 && char.IsWhiteSpace(line[0]))
+                    return true;
+                inTraceback = false;
+                return true;
+            }
+            return line.Contains("ERROR")
+                || line.Contains("CRITICAL")
+                || line.Contains("Exception")
+                || line.Contains("WARNING");
+        }
+
+        private void OnProcessExited(Process process)
+        {
+            int? exitCode = null;
+            try
+            {
+                exitCode = process.ExitCode;
+            }
+            catch (Exception e)
+            {
+                // already disposed after stopping
+                Logger.Debug(e, "Cannot read MPF's exit code.");
+            }
+            ExitCode = exitCode;
+            var code = exitCode?.ToString() ?? "unknown";
+
+            if (_launchedViaTerminal)
+                // that's the terminal launcher, which returns right away
+                Logger.Debug("MPF's terminal launcher exited with code {ExitCode:l}", code);
+            else if (_processExitExpected)
+                Logger.Info("MPF exited with code {ExitCode:l}", code);
+            else
+                Logger.Warn(
+                    "MPF exited unexpectedly with code {ExitCode:l}. {Hint:l}",
+                    code,
+                    OutputCaptured
+                        ? "Its output is in the log above (logger Mpf.Process)."
+                        : $"Its own log is in {MpfLogFolder}."
+                );
+        }
+
+        /// <summary>
+        /// Whether a start failed because of something outside of VPE: MPF missing, not
+        /// responding, or exiting.
+        /// </summary>
+        internal static bool IsEnvironmentFailure(Exception e) =>
+            e is System.ComponentModel.Win32Exception or TimeoutException or RpcException or IOException;
+
+        private void LogStartupFailure(Exception ex)
+        {
+            var step = _startupStep ?? "starting MPF";
+            if (ex is OperationCanceledException)
+            {
+                Logger.Debug("MPF startup was cancelled while {Step:l}.", step);
+                return;
+            }
+
+            StartupError = $"{step}: {ex.Message}";
+            var executable =
+                _options.ExecutableSource == MpfExecutableSource.AssumeRunning
+                    ? "(assumed to be running)"
+                    : ExecutablePath;
+            if (IsEnvironmentFailure(ex))
+                Logger.Warn(
+                    ex,
+                    "Could not start MPF, failed while {Step:l}. Executable source {ExecutableSource}, "
+                        + "executable {Executable:l}, machine folder {MachineFolder:l}. {Hint:l}",
+                    step,
+                    _options.ExecutableSource,
+                    executable,
+                    _machineFolder,
+                    OutputCaptured
+                        ? "MPF's output is in the log above (logger Mpf.Process)."
+                        : $"MPF's own log is in {MpfLogFolder}."
+                );
+            else
+                // not something the user can fix, the caller logs the exception
+                Logger.Info(
+                    "MPF startup failed while {Step:l} (executable {Executable:l}, machine folder {MachineFolder:l})",
+                    step,
+                    executable,
+                    _machineFolder
+                );
         }
 
         private async Task ConnectToMpf(MachineState initialState, CancellationToken ct)
@@ -534,6 +772,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                 if (_options.ExecutableSource != MpfExecutableSource.AssumeRunning)
                     await WaitUntilMpfReady(_grpcChannel, ct);
 
+                _startupStep = "opening the command streams to MPF";
                 var client = new MpfHardwareService.MpfHardwareServiceClient(_grpcChannel);
                 _mpfCommandStreamCall = client.Start(
                     initialState,
@@ -544,7 +783,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                 );
                 _receiveMpfCommandsTask = ReceiveMpfCommands();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _mpfCommunicationCts?.Cancel();
                 try
@@ -552,7 +791,12 @@ namespace VisualPinball.Engine.Mpf.Unity
                     if (_receiveMpfCommandsTask != null)
                         await _receiveMpfCommandsTask;
                 }
-                catch (OperationCanceledException) { }
+                catch (Exception receiveEx)
+                {
+                    // the connection failure is what counts, it's rethrown below
+                    if (receiveEx is not OperationCanceledException)
+                        Logger.Debug(receiveEx, "Receiving MPF commands failed while giving up connecting.");
+                }
                 finally
                 {
                     _receiveMpfCommandsTask = null;
@@ -564,8 +808,8 @@ namespace VisualPinball.Engine.Mpf.Unity
                     _mpfSwitchStreamCall = null;
                     _mpfCommandStreamCall?.Dispose();
                     _mpfCommandStreamCall = null;
-                    throw ex;
                 }
+                throw;
             }
         }
 
@@ -655,17 +899,28 @@ namespace VisualPinball.Engine.Mpf.Unity
             switch (_options.StartupBehavior)
             {
                 case MpfStartupBehavior.PingUntilReady:
-                    Logger.Info("Attempting to connect to MPF...");
-                    var startTime = DateTime.Now;
-                    var pingResponse = await PingUntilResponseOrTimeout(channel, ct);
-                    var timeToConnect = (DateTime.Now - startTime).TotalSeconds;
+                    _startupStep = "waiting for MPF to respond";
                     Logger.Info(
-                        $"Successfully connected to MPF in {timeToConnect:F2} seconds. "
-                            + $"MPF version: {pingResponse.MpfVersion}"
+                        "Waiting for MPF to respond at {Address:l}, for up to {Timeout} s",
+                        _grpcAddress,
+                        _options.ConnectTimeout
+                    );
+                    var stopwatch = Stopwatch.StartNew();
+                    var pingResponse = await PingUntilResponseOrTimeout(channel, ct);
+                    MpfVersion = pingResponse.MpfVersion;
+                    Logger.Info(
+                        "Connected to MPF {MpfVersion:l} in {ConnectMs} ms",
+                        MpfVersion,
+                        stopwatch.ElapsedMilliseconds
                     );
                     break;
                 case MpfStartupBehavior.DelayConnection:
+                    _startupStep = "waiting before connecting to MPF";
                     await Task.Delay(TimeSpan.FromSeconds(_options.ConnectDelay), ct);
+                    Logger.Info(
+                        "Connecting to MPF after a fixed delay of {Delay} s (its version isn't queried in this mode)",
+                        _options.ConnectDelay
+                    );
                     break;
             }
         }
@@ -747,7 +1002,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                 catch (Exception ex) when (ex is IOException or RpcException)
                 {
                     ct.ThrowIfCancellationRequested();
-                    Logger.Info("No response from MPF. Retrying...");
+                    Logger.Debug("No response from MPF yet, retrying.");
                     await Task.Delay(TimeSpan.FromSeconds(0.2));
                 }
             }
@@ -762,7 +1017,21 @@ namespace VisualPinball.Engine.Mpf.Unity
                 )
                 {
                     var command = _mpfCommandStreamCall.ResponseStream.Current;
-                    ExecuteMpfCommand(command);
+                    try
+                    {
+                        ExecuteMpfCommand(command);
+                    }
+                    catch (Exception e)
+                    {
+                        // a handler failing must not stop the commands that follow
+                        if (CommandHandlerFailedThrottle.ShouldLog(out var suppressed))
+                            Logger.Error(
+                                e,
+                                "Handling MPF command {Command} failed ({Suppressed} similar suppressed before)",
+                                command.CommandCase,
+                                suppressed
+                            );
+                    }
                 }
             }
             catch (RpcException ex)
@@ -770,7 +1039,13 @@ namespace VisualPinball.Engine.Mpf.Unity
                 if (!_mpfCommunicationCts.IsCancellationRequested)
                 {
                     MpfState = MpfState.NotConnected;
-                    Logger.Error($"Unable to receive commands from MPF: {ex}");
+                    Logger.Warn(
+                        ex,
+                        "Lost the connection to MPF, it no longer drives the table. {Hint:l}",
+                        OutputCaptured
+                            ? "MPF's output is in the log above (logger Mpf.Process)."
+                            : $"MPF's own log is in {MpfLogFolder}."
+                    );
                 }
             }
         }
@@ -780,7 +1055,8 @@ namespace VisualPinball.Engine.Mpf.Unity
             switch (command.CommandCase)
             {
                 case Commands.CommandOneofCase.None:
-                    Logger.Warn("Received empty command from MPF.");
+                    if (EmptyCommandThrottle.ShouldLog())
+                        Logger.Warn("Received an empty command from MPF.");
                     break;
                 case Commands.CommandOneofCase.FadeLight:
                     MpfFadeLightRequestReceived?.Invoke(this, command.FadeLight);
@@ -813,7 +1089,14 @@ namespace VisualPinball.Engine.Mpf.Unity
                     );
                     break;
                 default:
-                    Logger.Error($"MPF sent an unknown commnand '{command}'");
+                    // a newer MPF than this package knows
+                    if (UnknownCommandLog.ShouldLog((int)command.CommandCase))
+                        Logger.Warn(
+                            "MPF sent command {CommandCase}, which VPE doesn't know. MPF {MpfVersion:l} "
+                                + "may be newer than VPE's MPF package.",
+                            (int)command.CommandCase,
+                            MpfVersion ?? "(unknown version)"
+                        );
                     break;
             }
         }
@@ -823,11 +1106,17 @@ namespace VisualPinball.Engine.Mpf.Unity
             var mpfProcesses = Process.GetProcessesByName("mpf");
             try
             {
+                var killed = 0;
                 foreach (var process in mpfProcesses)
                 {
                     if (!process.HasExited)
+                    {
                         process.Kill();
+                        killed++;
+                    }
                 }
+                if (killed > 0)
+                    Logger.Info("Killed {Count} MPF process(es) that were still running.", killed);
             }
             finally
             {

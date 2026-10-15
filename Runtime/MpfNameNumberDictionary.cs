@@ -50,6 +50,25 @@ namespace VisualPinball.Engine.Mpf.Unity
             );
         }
 
+        /// <summary>
+        /// Lists the names whose number differs from the given map, for logging.
+        /// </summary>
+        public IEnumerable<string> GetDifferences(Dictionary<string, string> numbersByName)
+        {
+            foreach (var kvp in numbersByName)
+            {
+                if (!_numbersByName.TryGetValue(kvp.Key, out var number))
+                    yield return $"{kvp.Key} (only in MPF)";
+                else if (number != kvp.Value)
+                    yield return $"{kvp.Key} (VPE {number}, MPF {kvp.Value})";
+            }
+            foreach (var name in _numbersByName.Keys)
+            {
+                if (!numbersByName.ContainsKey(name))
+                    yield return $"{name} (only in VPE)";
+            }
+        }
+
         public void Init(Dictionary<string, string> numbersByName)
         {
             _namesByNumber.Clear();

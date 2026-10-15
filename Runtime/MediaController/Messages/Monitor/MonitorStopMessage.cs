@@ -11,7 +11,8 @@
 
 using System;
 using Newtonsoft.Json.Linq;
-using UnityEngine;
+using NLog;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Monitor
 {
@@ -20,6 +21,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Monitor
         public const string Command = "monitor_stop";
         private const string CategoryParamName = "category";
         public readonly MonitoringCategory Category;
+
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public MonitorStopMessage(MonitoringCategory category)
         {
@@ -30,9 +33,9 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController.Messages.Monitor
         {
             var categoryString = Category.GetStringValue();
             if (string.IsNullOrEmpty(categoryString))
-                Debug.LogError(
-                    "[MonitorStopMessage] Cannot create proper BCP message because "
-                        + "monitoring category has no associated string value."
+                Logger.Error(
+                    "Cannot create a proper BCP message, monitoring category {Category} has no string value.",
+                    Category
                 );
             return new BcpMessage(
                 command: Command,

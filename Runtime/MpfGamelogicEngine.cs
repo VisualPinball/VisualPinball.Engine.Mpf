@@ -35,8 +35,13 @@ namespace VisualPinball.Engine.Mpf.Unity
         : MonoBehaviour,
             IGamelogicEngine,
             IGamelogicInputThreading,
-            IGamelogicNativeOutputs
+            IGamelogicNativeOutputs,
+            IDiagnosticsSource,
+            IGamelogicStartupStatus
     {
+        /// <inheritdoc />
+        public string StartupFailure => _mpfWrangler?.StartupError;
+
         [SerializeField]
         private MpfWranglerOptions _wranglerOptions;
 
@@ -111,6 +116,16 @@ namespace VisualPinball.Engine.Mpf.Unity
         }
         private Player _player;
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static readonly LogOncePerKey<string> UnmappedSwitchLog = new();
+        private static readonly LogOncePerKey<string> UnknownLampNumberLog = new();
+        private static readonly LogOncePerKey<string> UnknownCoilNumberLog = new();
+        private static readonly LogOncePerKey<string> UnknownHardwareRuleLog = new();
+        private static readonly LogOncePerKey<string> SegmentDisplayLog = new();
+        private static readonly LogThrottle SwitchNotSentThrottle = new(3, TimeSpan.FromSeconds(30));
+        private static readonly LogThrottle SwitchSendFailedThrottle = new(3, TimeSpan.FromSeconds(30));
+
+        // for diagnostics: whether the machine description stored in VPE matches MPF's
+        private string _machineDescriptionStatus = "not checked";
 
         private readonly MpfOutputModel _nativeOutputModel = new(MonotonicMs);
         private NativeOutputSink _nativeOutputSink;
@@ -252,21 +267,66 @@ namespace VisualPinball.Engine.Mpf.Unity
                 ExecuteMpfSetSegmentDisplayFrameRequest;
 
             MachineState initialState = CompileMachineState(player);
-            await MpfWrangler.StartMpf(initialState, ct);
+            try
+            {
+                await MpfWrangler.StartMpf(initialState, ct);
+            }
+            catch (Exception e) when (MpfWrangler.IsEnvironmentFailure(e))
+            {
+                // MPF is missing, didn't respond or exited. The wrangler logged what failed and
+                // how to find out why. That's for the user to fix, not a VPE error, so the table
+                // runs without gamelogic.
+                return;
+            }
 
             OnDisplaysRequested?.Invoke(this, new RequestedDisplays(_mpfDotMatrixDisplays));
             OnStarted?.Invoke(this, EventArgs.Empty);
 
-            var md = await MpfWrangler.GetMachineDescription(timeout: 3f, ct);
-            if (!DoesMachineDescriptionMatch(md))
-                Logger.Warn("Mismatch between MPF's and VPE's machine description detected.");
+            MachineDescription md;
+            try
+            {
+                md = await MpfWrangler.GetMachineDescription(timeout: 3f, ct);
+            }
+            catch (Exception e) when (MpfWrangler.IsEnvironmentFailure(e))
+            {
+                _machineDescriptionStatus = "could not be read from MPF";
+                Logger.Warn(e, "Could not get MPF's machine description to compare it with VPE's.");
+                return;
+            }
+
+            var differences = GetMachineDescriptionDifferences(md);
+            if (differences.Count > 0)
+            {
+                _machineDescriptionStatus = $"differs ({differences.Count} difference(s))";
+                Logger.Warn(
+                    "MPF's machine description differs from the one stored in VPE: {Differences:l}. "
+                        + "Click 'Get Machine Description' in the inspector of the MPF gamelogic "
+                        + "engine to update it.",
+                    string.Join("; ", differences)
+                );
+            }
             else
+            {
+                _machineDescriptionStatus = "matches";
                 Logger.Info("MPF's machine description matches VPE's machine description.");
+            }
         }
 
         private async void OnDestroy()
         {
-            await MpfWrangler.StopMpf();
+            try
+            {
+                await MpfWrangler.StopMpf();
+            }
+            catch (Exception e) when (e is OperationCanceledException || MpfWrangler.IsEnvironmentFailure(e))
+            {
+                // MPF was gone already, or didn't answer the quit request
+                Logger.Debug(e, "MPF didn't shut down cleanly.");
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, "Stopping MPF failed.");
+            }
             MpfWrangler.MpfFadeLightRequestReceived -= ExecuteMpfFadeLightRequest;
             MpfWrangler.MpfPulseCoilRequestReceived -= ExecuteMpfPulseCoilRequest;
             MpfWrangler.MpfEnableCoilRequestReceived -= ExecuteMpfEnableCoilRequest;
@@ -286,29 +346,30 @@ namespace VisualPinball.Engine.Mpf.Unity
         )
         {
             var gle = requestingComponent.GetComponentInParent<MpfGamelogicEngine>();
-
-            var errorMessage =
-                $"Component '{requestingComponent.GetType()}' on game object "
-                + $"'{requestingComponent.gameObject.name}' is requesting a BCP interface, but "
-                + "{0} The BCP interface is used to communicate with the Mission Pinball Framework";
+            var componentType = requestingComponent.GetType().Name;
+            var gameObjectName = requestingComponent.gameObject.name;
 
             if (!Application.isPlaying)
             {
-                Logger.Error(string.Format(errorMessage, "the game is not running."));
+                Logger.Warn(
+                    "{Component:l} on {GameObject} requests a BCP interface (used to talk to MPF), "
+                        + "but the game is not running.",
+                    componentType,
+                    gameObjectName
+                );
                 bcpInterface = null;
                 return false;
             }
 
             if (gle == null)
             {
-                Logger.Error(
-                    string.Format(
-                        errorMessage,
-                        "no MPF game logic engine was found. Make sure the requesting component is "
-                            + "attached to an object that is part of the table hierarchy and "
-                            + "attach an 'MpfGamelogicEngine' component to the root object of the "
-                            + "table or remove the component that requested the BCP interface."
-                    )
+                Logger.Warn(
+                    "{Component:l} on {GameObject} requests a BCP interface (used to talk to MPF), "
+                        + "but no MPF gamelogic engine was found. Make sure the component is part of "
+                        + "the table hierarchy and that the table's root object has an "
+                        + "'MpfGamelogicEngine' component, or remove the component.",
+                    componentType,
+                    gameObjectName
                 );
                 bcpInterface = null;
                 return false;
@@ -316,13 +377,12 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             if (gle._wranglerOptions.MediaController != MpfMediaController.Included)
             {
-                Logger.Error(
-                    string.Format(
-                        errorMessage,
-                        "the game logic engine is not configured to use the integrated MPF media "
-                            + "controller. Set 'Media Controller' to 'Included' in the MPF game "
-                            + "logic engine inspector."
-                    )
+                Logger.Warn(
+                    "{Component:l} on {GameObject} requests a BCP interface (used to talk to MPF), "
+                        + "but the MPF gamelogic engine doesn't use the included media controller. "
+                        + "Set 'Media Controller' to 'Included' in its inspector.",
+                    componentType,
+                    gameObjectName
                 );
                 bcpInterface = null;
                 return false;
@@ -330,8 +390,12 @@ namespace VisualPinball.Engine.Mpf.Unity
 
             if (gle.MpfWrangler == null)
             {
+                // the property creates the wrangler, so this can't happen
                 Logger.Error(
-                    string.Format(errorMessage, "the game logic engine is not initialized.")
+                    "{Component:l} on {GameObject} requests a BCP interface, but the MPF gamelogic "
+                        + "engine is not initialized.",
+                    componentType,
+                    gameObjectName
                 );
                 bcpInterface = null;
                 return false;
@@ -340,6 +404,84 @@ namespace VisualPinball.Engine.Mpf.Unity
             bcpInterface = gle.MpfWrangler.BcpInterface;
             return true;
         }
+
+        #region Diagnostics
+
+        public string DiagnosticsSection => "MPF";
+
+        public void Describe(DiagnosticsWriter writer)
+        {
+            var options = _wranglerOptions;
+            var wrangler = _mpfWrangler;
+            if (options == null)
+            {
+                writer.Add("options", "none");
+                return;
+            }
+
+            writer.Add("mpf-version", wrangler?.MpfVersion ?? (
+                options.StartupBehavior == MpfStartupBehavior.DelayConnection
+                    ? "unknown (not queried with startup behavior DelayConnection)"
+                    : "unknown (not connected)"
+            ));
+            writer.Add("state", MpfState.ToString());
+            if (!string.IsNullOrEmpty(wrangler?.StartupError))
+                writer.Add("startup-error", wrangler.StartupError);
+            if (wrangler?.ExitCode is int exitCode)
+                writer.Add("exit-code", exitCode);
+
+            writer.Add("executable-source", options.ExecutableSource.ToString());
+            if (!string.IsNullOrEmpty(wrangler?.ExecutablePath))
+            {
+                writer.Add("executable", wrangler.ExecutablePath);
+                if (options.ExecutableSource == MpfExecutableSource.Included)
+                    writer.Add("executable-found", System.IO.File.Exists(wrangler.ExecutablePath));
+                writer.Add("arguments", wrangler.Arguments ?? "");
+            }
+
+            var machineFolder = options.MachineFolder;
+            writer.Add("machine-folder", machineFolder ?? "");
+            if (!string.IsNullOrEmpty(machineFolder))
+                writer.Add("machine-folder-found", System.IO.Directory.Exists(machineFolder));
+            writer.Add("machine-description", _machineDescriptionStatus);
+
+            writer.Add("media-controller", options.MediaController.ToString());
+            if (options.MediaController == MpfMediaController.Included)
+            {
+                writer.Add("bcp-state", BcpState.ToString());
+                writer.AddSetting("bcp-port", options.BcpInterfaceOptions?.Port);
+            }
+
+            var effectiveOutput = wrangler?.EffectiveOutputType;
+            writer.Add(
+                "output",
+                effectiveOutput == null || effectiveOutput == options.OutputType
+                    ? options.OutputType.ToString()
+                    : $"{effectiveOutput} (configured {options.OutputType}, release builds hide MPF)"
+            );
+            if (wrangler != null && wrangler.OutputCaptured)
+                writer.Add("mpf-output", "captured in the log (logger Mpf.Process)");
+            var logFolder = wrangler?.MpfLogFolder
+                ?? (string.IsNullOrEmpty(machineFolder) ? null : System.IO.Path.Combine(machineFolder, "logs"));
+            if (logFolder != null)
+            {
+                writer.Add("mpf-log-folder", logFolder);
+                writer.Add("mpf-log-folder-found", System.IO.Directory.Exists(logFolder));
+            }
+
+            writer.AddSetting("startup-behavior", options.StartupBehavior);
+            writer.AddSetting("connect-timeout", options.ConnectTimeout);
+            writer.AddSetting("connect-delay", options.ConnectDelay);
+            writer.AddSetting("verbose-logging", options.VerboseLogging);
+            writer.AddSetting("cache-config-files", options.CacheConfigFiles);
+            writer.AddSetting("force-reload-config", options.ForceReloadConfig);
+            writer.AddSetting("force-load-all-assets", options.ForceLoadAllAssetsOnStart);
+            writer.Add("switches", _requestedSwitches?.Length ?? 0);
+            writer.Add("coils", _requestedCoils?.Length ?? 0);
+            writer.Add("lamps", _requestedLamps?.Length ?? 0);
+        }
+
+        #endregion
 
         public void DisplayChanged(DisplayFrameData displayFrameData) { }
 
@@ -373,37 +515,79 @@ namespace VisualPinball.Engine.Mpf.Unity
 
         public async void Switch(string id, bool isClosed)
         {
-            OnSwitchChanged?.Invoke(this, new SwitchEventArgs2(id, isClosed));
-
-            // VPE runs MPF's hardware rules as wires, so their coils only show up here.
-            if (_mpfSwitchNumbers.TryGetNumberByName(id, out var ruleSwitchNumber))
-                _nativeOutputModel.EnqueueSwitch(ruleSwitchNumber, isClosed);
-
-            if (_mpfSwitchNumbers.ContainsName(id))
+            // async void: nothing observes this method's task, so whatever goes wrong is logged here
+            try
             {
-                if (MpfWrangler.MpfState == MpfState.Connected)
+                OnSwitchChanged?.Invoke(this, new SwitchEventArgs2(id, isClosed));
+
+                // VPE runs MPF's hardware rules as wires, so their coils only show up here.
+                if (_mpfSwitchNumbers.TryGetNumberByName(id, out var ruleSwitchNumber))
+                    _nativeOutputModel.EnqueueSwitch(ruleSwitchNumber, isClosed);
+
+                if (_mpfSwitchNumbers.ContainsName(id))
                 {
-                    var number = _mpfSwitchNumbers.GetNumberByName(id);
-                    var change = new SwitchChanges
+                    var state = MpfWrangler.MpfState;
+                    if (state == MpfState.Connected)
                     {
-                        SwitchNumber = number,
-                        SwitchState = isClosed,
-                    };
-                    await MpfWrangler.SendSwitchChange(change);
+                        var number = _mpfSwitchNumbers.GetNumberByName(id);
+                        var change = new SwitchChanges
+                        {
+                            SwitchNumber = number,
+                            SwitchState = isClosed,
+                        };
+                        await MpfWrangler.SendSwitchChange(change);
+                    }
+                    else if (SwitchNotSentThrottle.ShouldLog(out var suppressed))
+                    {
+                        if (suppressed == 0)
+                            Logger.Warn(
+                                "Switch {SwitchId} was not sent to MPF, because MPF is {MpfState}.",
+                                id,
+                                state
+                            );
+                        else
+                            Logger.Warn(
+                                "Switch {SwitchId} was not sent to MPF, because MPF is {MpfState} "
+                                    + "({Suppressed} similar suppressed).",
+                                id,
+                                state,
+                                suppressed
+                            );
+                    }
                 }
-                else
+                else if (UnmappedSwitchLog.ShouldLog(id))
                 {
                     Logger.Warn(
-                        $"Switch change '{id}' will not be sent to MPF because MPF is not ready"
+                        "Switch {SwitchId} has no MPF number, so its changes are not sent to MPF. Click "
+                            + "'Get Machine Description' in the inspector of the MPF gamelogic engine "
+                            + "to update it. Further changes of this switch are not logged.",
+                        id
                     );
                 }
             }
-            else
+            catch (OperationCanceledException)
             {
-                Logger.Error(
-                    $"Switch '{id}' is defined in the MPF game logic engine but not"
-                        + $" associated with an MPF number. State change cannot be forwarded to MPF."
-                );
+                // MPF is stopping
+            }
+            catch (Exception e) when (MpfWrangler.IsEnvironmentFailure(e))
+            {
+                if (SwitchSendFailedThrottle.ShouldLog(out var suppressed))
+                    Logger.Warn(
+                        e,
+                        "Could not send switch {SwitchId} to MPF ({Suppressed} similar suppressed before).",
+                        id,
+                        suppressed
+                    );
+            }
+            catch (Exception e)
+            {
+                if (SwitchSendFailedThrottle.ShouldLog(out var suppressed))
+                    Logger.Error(
+                        e,
+                        "Sending switch {SwitchId} to MPF failed ({Suppressed} similar suppressed before).",
+                        id,
+                        suppressed
+                    );
             }
         }
 
@@ -510,25 +694,73 @@ namespace VisualPinball.Engine.Mpf.Unity
             BcpStateChanged?.Invoke(this, args);
         }
 
-        private bool DoesMachineDescriptionMatch(MachineDescription md)
+        /// <summary>
+        /// Lists how the machine description stored in VPE differs from MPF's, e.g.
+        /// "coils not in MPF: c_flipper". Empty if they match.
+        /// </summary>
+        private List<string> GetMachineDescriptionDifferences(MachineDescription md)
         {
-            return _requestedSwitches.All(
-                    (gleSw) => md.Switches.Any((mpfSw) => MpfExtensions.Equals(gleSw, mpfSw))
-                )
-                && _requestedCoils.All(
-                    (gleCoil) => md.Coils.Any((mpfCoil) => MpfExtensions.Equals(gleCoil, mpfCoil))
-                )
-                && _requestedLamps.All(
-                    (gleLamp) =>
-                        md.Lights.Any((mpfLight) => MpfExtensions.Equals(gleLamp, mpfLight))
-                )
-                && _mpfDotMatrixDisplays.All(
-                    (displayCfg) =>
-                        md.Dmds.Any((mpfDmd) => MpfExtensions.Equals(displayCfg, mpfDmd))
-                )
-                && _mpfSwitchNumbers.Equals(md.GetSwitchNumbersByNameDict())
-                && _mpfCoilNumbers.Equals(md.GetCoilNumbersByNameDict())
-                && _mpfLampNumbers.Equals(md.GetLampNumbersByNameDict());
+            var differences = new List<string>();
+            AddDifference(
+                differences,
+                "switches not in MPF or with a different type",
+                _requestedSwitches
+                    .Where(gleSw => !md.Switches.Any(mpfSw => MpfExtensions.Equals(gleSw, mpfSw)))
+                    .Select(sw => sw.Id)
+            );
+            AddDifference(
+                differences,
+                "coils not in MPF",
+                _requestedCoils
+                    .Where(gleCoil => !md.Coils.Any(mpfCoil => MpfExtensions.Equals(gleCoil, mpfCoil)))
+                    .Select(coil => coil.Id)
+            );
+            AddDifference(
+                differences,
+                "lights not in MPF",
+                _requestedLamps
+                    .Where(gleLamp => !md.Lights.Any(mpfLight => MpfExtensions.Equals(gleLamp, mpfLight)))
+                    .Select(lamp => lamp.Id)
+            );
+            AddDifference(
+                differences,
+                "DMDs not in MPF or with a different size",
+                (_mpfDotMatrixDisplays ?? Array.Empty<DisplayConfig>())
+                    .Where(cfg => !md.Dmds.Any(mpfDmd => MpfExtensions.Equals(cfg, mpfDmd)))
+                    .Select(cfg => cfg.Id)
+            );
+            AddDifference(
+                differences,
+                "switch numbers",
+                _mpfSwitchNumbers.GetDifferences(md.GetSwitchNumbersByNameDict())
+            );
+            AddDifference(
+                differences,
+                "coil numbers",
+                _mpfCoilNumbers.GetDifferences(md.GetCoilNumbersByNameDict())
+            );
+            AddDifference(
+                differences,
+                "light numbers",
+                _mpfLampNumbers.GetDifferences(md.GetLampNumbersByNameDict())
+            );
+            return differences;
+        }
+
+        private static void AddDifference(
+            List<string> differences,
+            string what,
+            IEnumerable<string> names
+        )
+        {
+            const int maxNames = 10;
+            var list = names.ToList();
+            if (list.Count == 0)
+                return;
+            var text = string.Join(", ", list.Take(maxNames));
+            if (list.Count > maxNames)
+                text += $" and {list.Count - maxNames} more";
+            differences.Add($"{what}: {text}");
         }
 
         private MachineState CompileMachineState(Player player)
@@ -559,10 +791,12 @@ namespace VisualPinball.Engine.Mpf.Unity
             {
                 if (_mpfLampNumbers.TryGetNameByNumber(fade.LightNumber, out var lampName))
                     args.Add(new LampEventArgs(lampName, fade.TargetBrightness));
-                else
-                    Logger.Error(
-                        $"MPF sent a lamp number '{fade.LightNumber}' that is"
-                            + $" not associated with a lamp id."
+                else if (UnknownLampNumberLog.ShouldLog(fade.LightNumber))
+                    Logger.Warn(
+                        "MPF drives light number {LightNumber}, which VPE has no lamp for. Update the "
+                            + "machine description in the MPF gamelogic engine inspector. Further "
+                            + "changes of this light are not logged.",
+                        fade.LightNumber
                     );
             }
             OnLampsChanged?.Invoke(this, new LampsEventArgs(args.ToArray()));
@@ -578,10 +812,7 @@ namespace VisualPinball.Engine.Mpf.Unity
                 _player.ScheduleAction(request.PulseMs, () => SetCoil(coilName, false));
             }
             else
-                Logger.Error(
-                    $"MPF sent a coil number '{request.CoilNumber}'"
-                        + $" that is not associated with a coil id."
-                );
+                LogUnknownCoilNumber(request.CoilNumber);
         }
 
         private void ExecuteMpfEnableCoilRequest(object sender, EnableCoilRequest request)
@@ -591,10 +822,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
                 SetCoil(coilName, true);
             else
-                Logger.Error(
-                    $"MPF sent a coil number '{request.CoilNumber}'"
-                        + $" that is not associated with a coil id."
-                );
+                LogUnknownCoilNumber(request.CoilNumber);
         }
 
         private void ExecuteMpfCommandDisableCoilRequest(object sender, DisableCoilRequest request)
@@ -604,10 +832,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             if (_mpfCoilNumbers.TryGetNameByNumber(request.CoilNumber, out var coilName))
                 SetCoil(coilName, false);
             else
-                Logger.Error(
-                    $"MPF sent a coil number '{request.CoilNumber}'"
-                        + $" that is not associated with a coil id."
-                );
+                LogUnknownCoilNumber(request.CoilNumber);
         }
 
         private void ExecuteMpfConfigureHardwareRuleRequest(
@@ -629,11 +854,7 @@ namespace VisualPinball.Engine.Mpf.Unity
             )
                 _player.AddHardwareRule(switchName, coilName);
             else
-                Logger.Error(
-                    $"MPF wants to add a hardware rule for switch number "
-                        + $"'{switchNumber} and coil number '{coilNumber}.' At least one "
-                        + $"of them is not associated with an id."
-                );
+                LogUnknownHardwareRule(switchNumber, coilNumber);
         }
 
         private void ExecuteMpfRemoveHardwareRuleRequest(
@@ -650,11 +871,32 @@ namespace VisualPinball.Engine.Mpf.Unity
             )
                 _player.RemoveHardwareRule(switchName, coilName);
             else
-                Logger.Error(
-                    $"MPF wants to remove a hardware rule for switch number "
-                        + $"'{switchNumber} and coil number '{coilNumber}.' At least one "
-                        + $"of them is not associated with an id."
+                LogUnknownHardwareRule(switchNumber, coilNumber);
+        }
+
+        private static void LogUnknownCoilNumber(string coilNumber)
+        {
+            if (UnknownCoilNumberLog.ShouldLog(coilNumber))
+                Logger.Warn(
+                    "MPF drives coil number {CoilNumber}, which VPE has no coil for. Update the "
+                        + "machine description in the MPF gamelogic engine inspector. Further "
+                        + "changes of this coil are not logged.",
+                    coilNumber
                 );
+        }
+
+        private void LogUnknownHardwareRule(string switchNumber, string coilNumber)
+        {
+            if (!UnknownHardwareRuleLog.ShouldLog(switchNumber + "/" + coilNumber))
+                return;
+            Logger.Warn(
+                "MPF configured a hardware rule for switch number {SwitchNumber} and coil number "
+                    + "{CoilNumber}, but VPE has no {Missing:l} for it, so the rule is ignored. Update "
+                    + "the machine description in the MPF gamelogic engine inspector.",
+                switchNumber,
+                coilNumber,
+                _mpfSwitchNumbers.ContainsNumber(switchNumber) ? "coil" : "switch"
+            );
         }
 
         private void ExecuteMpfSetDmdFrameRequest(object sender, SetDmdFrameRequest request)
@@ -672,10 +914,12 @@ namespace VisualPinball.Engine.Mpf.Unity
             SetSegmentDisplayFrameRequest request
         )
         {
-            Logger.Error(
-                "MPF sent a segment display frame, but segment displays are not yet supported by "
-                    + "VPEs MPF integration."
-            );
+            if (SegmentDisplayLog.ShouldLog(request.Name ?? ""))
+                Logger.Warn(
+                    "MPF sent a frame for segment display {Display}, but VPE's MPF integration doesn't "
+                        + "support segment displays yet. Further frames are ignored silently.",
+                    request.Name
+                );
         }
     }
 }

@@ -10,7 +10,8 @@
 // SOFTWARE.
 
 using System.Collections.Generic;
-using UnityEngine;
+using NLog;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController
 {
@@ -29,6 +30,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
         private readonly CreateMessage _createStopListeningMessage;
         private readonly Dictionary<T, HashSet<object>> _listeners = new();
         private bool _canSendMonitoringRequests = false;
+
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private bool CanSendMonitoringRequests
         {
             get => _canSendMonitoringRequests;
@@ -69,9 +72,10 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
                     SendStartMonitoringRequest(@event);
             }
             else if (!_listeners[@event].Add(listener))
-                Debug.LogError(
-                    $"[EventPool] Cannot add listener '{listener}' to event '{@event}' because it "
-                        + "was already added."
+                Logger.Error(
+                    "Cannot add listener {Listener:l} to MPF event {Event} because it was already added.",
+                    listener?.GetType().Name,
+                    @event?.ToString()
                 );
         }
 
@@ -89,9 +93,10 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
                 }
             }
             else
-                Debug.LogError(
-                    $"[EventPool] Cannot remove listener '{listener}' from event '{@event}' "
-                        + "because it is not a listener."
+                Logger.Error(
+                    "Cannot remove listener {Listener:l} from MPF event {Event} because it is not a listener.",
+                    listener?.GetType().Name,
+                    @event?.ToString()
                 );
         }
 
