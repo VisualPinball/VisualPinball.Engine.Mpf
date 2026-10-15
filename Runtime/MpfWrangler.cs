@@ -694,7 +694,9 @@ namespace VisualPinball.Engine.Mpf.Unity
                 // already disposed after stopping
                 Logger.Debug(e, "Cannot read MPF's exit code.");
             }
-            ExitCode = exitCode;
+            // a terminal launcher's exit code is the launcher's, not MPF's, which keeps running
+            if (!_launchedViaTerminal)
+                ExitCode = exitCode;
             var code = exitCode?.ToString() ?? "unknown";
 
             if (_launchedViaTerminal)
