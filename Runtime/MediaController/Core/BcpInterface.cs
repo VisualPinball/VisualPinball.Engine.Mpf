@@ -84,6 +84,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
         public readonly BcpMessageHandlers MessageHandlers;
 
         private static Logger Logger = LogManager.GetCurrentClassLogger();
+        private static readonly LogThrottle ParseFailedThrottle = new(5, TimeSpan.FromSeconds(30));
+        private static readonly LogOncePerKey<string> UnknownCommandLog = new();
 
         public BcpInterface(BcpInterfaceOptions options)
         {
@@ -98,7 +100,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
         {
             BcpMessage bcpMessage = message.ToGenericMessage();
             if (_options.LogSentMessages)
-                Logger.Info($"Sending BCP message: {bcpMessage}");
+                // the user asked for every message in the inspector
+                Logger.Info("Sending BCP message: {Message:l}", bcpMessage.ToString());
             Server.EnqueueMessage(bcpMessage);
         }
 
@@ -156,6 +159,12 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
             }
             else
             {
+                Logger.Warn(
+                    "MPF speaks BCP {MpfBcpVersion}, but VPE's media controller speaks {VpeBcpVersion}. "
+                        + "The media controller won't work with this MPF version.",
+                    message.BcpSpecVersion,
+                    Constants.BcpSpecVersion
+                );
                 string originalHelloMessage = message.ToGenericMessage().ToString();
                 response = new ErrorMessage(
                     message: "unknown protocol version",
@@ -193,7 +202,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
         private void HandleReceivedMessage(BcpMessage message)
         {
             if (_options.LogReceivedMessages)
-                Logger.Info($"BCP Message received: {message}");
+                // the user asked for every message in the inspector
+                Logger.Info("BCP message received: {Message:l}", message.ToString());
 
             if (MessageHandlers.Handlers.TryGetValue(message.Command, out var handler))
             {
@@ -203,15 +213,25 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
                 }
                 catch (BcpParseException e)
                 {
-                    Logger.Error($"Failed to parse BCP message. Message: {message} Exception: {e}");
+                    // MPF sent something this media controller doesn't understand
+                    if (ParseFailedThrottle.ShouldLog(out var suppressed))
+                        Logger.Warn(
+                            e,
+                            "Could not parse BCP message {Message:l} from MPF ({Suppressed} similar suppressed before).",
+                            message.ToString(),
+                            suppressed
+                        );
                 }
             }
             else
             {
-                Logger.Error(
-                    $"No parser registered for BCP message with command '{message.Command}' "
-                        + $"Message: {message}"
-                );
+                if (UnknownCommandLog.ShouldLog(message.Command ?? ""))
+                    Logger.Warn(
+                        "MPF sent BCP command {Command}, which VPE's media controller doesn't handle: "
+                            + "{Message:l}. Further messages with this command are not logged.",
+                        message.Command,
+                        message.ToString()
+                    );
                 EnqueueMessage(new ErrorMessage("unknown command", message.ToString()));
             }
         }

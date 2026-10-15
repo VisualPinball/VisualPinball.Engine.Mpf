@@ -16,7 +16,9 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NLog;
 using VisualPinball.Unity;
+using Logger = NLog.Logger;
 
 namespace VisualPinball.Engine.Mpf.Unity.MediaController
 {
@@ -72,6 +74,8 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
         private LazyInit<SemaphoreSlim> _startStopSemaphore = new(() => new SemaphoreSlim(1, 1));
 
         private const char Terminator = '\n';
+
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private enum ReceiveEndReason
         {
@@ -158,6 +162,7 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
             try
             {
                 listener.Start();
+                Logger.Info("BCP server listening on port {Port} for MPF", port);
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -165,6 +170,7 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
                     {
                         using TcpClient client = listener.AcceptTcpClient();
                         ConnectionState = BcpConnectionState.Connected;
+                        Logger.Info("MPF connected to the BCP server");
                         using NetworkStream stream = client.GetStream();
                         const int bufferSize = 1024;
                         var byteBuffer = new byte[bufferSize];
@@ -196,12 +202,19 @@ namespace VisualPinball.Engine.Mpf.Unity.MediaController
                         ConnectionState = BcpConnectionState.Disconnecting;
                         await SendMessagesAsync(stream, ct);
                         _disconnectRequested.Reset();
+                        Logger.Info("MPF disconnected from the BCP server");
                     }
                     else
                     {
                         await Task.Delay(100);
                     }
                 }
+            }
+            catch (Exception e) when (e is SocketException or System.IO.IOException)
+            {
+                // e.g. the port is taken, or MPF dropped the connection
+                Logger.Warn(e, "The BCP server on port {Port} stopped, the media controller no longer gets MPF's messages.", port);
+                throw;
             }
             finally
             {
